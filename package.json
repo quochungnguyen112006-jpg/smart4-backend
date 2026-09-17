@@ -1,22 +1,14 @@
 {
-  "name": "web",
+  "name": "smart4-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Smart4 IoT Cloud Backend",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@supabase/supabase-js": "^2.116.0",
-    "axios": "^1.20.0",
-    "mqtt": "^5.15.2",
-    "sqlite3": "^6.0.1"
-  },
-  "allowScripts": {
-    "sqlite3@6.0.1": true
+    "@supabase/supabase-js": "^2.57.4",
+    "axios": "^1.12.2",
+    "mqtt": "^5.14.1"
   }
 }
