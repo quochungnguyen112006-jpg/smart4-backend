@@ -26,6 +26,10 @@ const ONESIGNAL_APP_ID =
 const ONESIGNAL_API_KEY =
     process.env.ONESIGNAL_API_KEY;
 
+// Subscription ID của iPhone
+const ONESIGNAL_SUBSCRIPTION_ID =
+    "e96ea331-1b56-479f-a296-72b733a4f6e2";
+
 // ======================================================
 // SUPABASE CLOUD
 // ======================================================
@@ -77,9 +81,10 @@ console.log(
         : "THIẾU / KHÔNG ĐÚNG"
 );
 
-// ======================================================
-// ONESIGNAL CHECK
-// ======================================================
+console.log(
+    "📱 OneSignal Subscription:",
+    ONESIGNAL_SUBSCRIPTION_ID ? "OK" : "THIẾU"
+);
 
 if (!ONESIGNAL_API_KEY) {
     console.log(
@@ -101,6 +106,7 @@ async function sendNotification(
     tempAlert,
     gasAlert
 ) {
+
     if (!ONESIGNAL_API_KEY) {
         console.log(
             "⚠️ Không gửi notification: thiếu ONESIGNAL_API_KEY"
@@ -131,16 +137,26 @@ async function sendNotification(
         return;
     }
 
+    console.log("📱 Đang gửi OneSignal...");
+    console.log("📱 App ID:", ONESIGNAL_APP_ID);
+    console.log(
+        "📱 Subscription ID:",
+        ONESIGNAL_SUBSCRIPTION_ID
+    );
+
     try {
 
         const response = await axios.post(
+
             "https://api.onesignal.com/notifications",
 
             {
                 app_id: ONESIGNAL_APP_ID,
 
+                target_channel: "push",
+
                 include_subscription_ids: [
-                    "e96ea331-1b56-479f-a296-72b733a4f6e2"
+                    ONESIGNAL_SUBSCRIPTION_ID
                 ],
 
                 headings: {
@@ -159,21 +175,61 @@ async function sendNotification(
 
                     "Content-Type":
                         "application/json"
-                }
+                },
+
+                timeout: 10000
             }
         );
 
         console.log(
-            "📱 OneSignal đã gửi notification ID:",
+            "================================"
+        );
+
+        console.log(
+            "📱 OneSignal gửi thành công!"
+        );
+
+        console.log(
+            "📱 Notification ID:",
             response.data.id
+        );
+
+        console.log(
+            "📱 Response:",
+            response.data
+        );
+
+        console.log(
+            "================================"
         );
 
     } catch (error) {
 
         console.error(
-            "❌ OneSignal lỗi:",
-            error.response?.data ||
+            "================================"
+        );
+
+        console.error(
+            "❌ ONESIGNAL GỬI THẤT BẠI"
+        );
+
+        console.error(
+            "❌ HTTP:",
+            error.response?.status
+        );
+
+        console.error(
+            "❌ DATA:",
+            error.response?.data
+        );
+
+        console.error(
+            "❌ MESSAGE:",
             error.message
+        );
+
+        console.error(
+            "================================"
         );
     }
 }
@@ -191,18 +247,20 @@ async function saveToSupabase(
 
     try {
 
-        const { data, error } =
-            await supabase
-                .from("sensor_data")
-                .insert([
-                    {
-                        temp: temp,
-                        gas: gas,
-                        temp_alert: tempAlert,
-                        gas_alert: gasAlert
-                    }
-                ])
-                .select();
+        const {
+            data,
+            error
+        } = await supabase
+            .from("sensor_data")
+            .insert([
+                {
+                    temp: temp,
+                    gas: gas,
+                    temp_alert: tempAlert,
+                    gas_alert: gasAlert
+                }
+            ])
+            .select();
 
         if (error) {
 
@@ -331,6 +389,7 @@ mqttClient.on(
     async (topic, message) => {
 
         console.log("--------------------------------");
+
         console.log(
             "📩 Topic:",
             topic
@@ -429,6 +488,12 @@ mqttClient.on(
                     tempAlert === 1,
                     gasAlert === 1
                 );
+
+            } else {
+
+                console.log(
+                    "ℹ️ Không có cảnh báo → không gửi notification"
+                );
             }
 
         } catch (err) {
@@ -525,7 +590,7 @@ const server =
             }
 
             // ==================================================
-            // GET DATA FROM SUPABASE
+            // GET DATA
             // ==================================================
 
             if (
@@ -638,7 +703,7 @@ const server =
             }
 
             // ==================================================
-            // DELETE DATA FROM SUPABASE
+            // DELETE DATA
             // ==================================================
 
             if (
