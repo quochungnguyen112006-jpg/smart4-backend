@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 IoT Sensor Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MQTT.js CDN -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-6 font-sans">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700">
+            <div>
+                <h1 class="text-2xl font-bold text-cyan-400">IoT Sensor Monitoring Dashboard</h1>
+                <p class="text-sm text-slate-400 mt-1">Hệ thống giám sát cảm biến ESP32 qua MQTT & Supabase</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex items-center space-x-3">
+                <span id="mqtt-status" class="px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-400 border border-red-500/30">
+                    ESP32: Offline
+                </span>
+                <span id="sub-status" class="px-3 py-1 text-xs font-semibold rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                    Subscribed: lab/sensor
+                </span>
+            </div>
+        </header>
+
+        <!-- Current Values Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Nhiệt độ -->
+            <div class="bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 flex justify-between items-center">
+                <div>
+                    <p class="text-sm text-slate-400 font-medium">Nhiệt độ hiện tại</p>
+                    <h2 id="val-temp" class="text-4xl font-ext500 font-bold text-amber-400 mt-2">-- °C</h2>
+                </div>
+                <div class="p-4 bg-amber-500/10 rounded-xl border border-amber-500/20 text-amber-400 text-2xl">
+                    🌡️
+                </div>
+            </div>
+            <!-- Khí Gas -->
+            <div class="bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700 flex justify-between items-center">
+                <div>
+                    <p class="text-sm text-slate-400 font-medium">Nồng độ Khí Gas</p>
+                    <h2 id="val-gas" class="text-4xl font-bold text-emerald-400 mt-2">-- PPM</h2>
+                </div>
+                <div class="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 text-2xl">
+                    ☁️
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700">
+                <h3 class="text-lg font-semibold text-slate-200 mb-4">📈 Biểu đồ Nhiệt độ (°C)</h3>
+                <div class="relative h-72">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700">
+                <h3 class="text-lg font-semibold text-slate-200 mb-4">📈 Biểu đồ Khí Gas (PPM)</h3>
+                <div class="relative h-72">
+                    <canvas id="gasChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Panel -->
+        <div class="bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700">
+            <h3 class="text-lg font-semibold text-slate-200 mb-4">📊 Phân tích Dữ liệu Thống kê</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Thống kê Nhiệt độ -->
+                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700/60 space-y-2">
+                    <h4 class="text-amber-400 font-medium text-sm">🌡️ Nhiệt độ</h4>
+                    <p class="text-sm text-slate-300 flex justify-between"><span>Trung bình:</span> <span id="stat-temp-avg" class="font-semibold">-- °C</span></p>
+                    <p class="text-sm text-slate-300 flex justify-between"><span>Cao nhất (Max):</span> <span id="stat-temp-max" class="font-semibold text-amber-400">-- °C</span></p>
+                    <p class="text-sm text-slate-300 flex justify-between"><span>Thấp nhất (Min):</span> <span id="stat-temp-min" class="font-semibold text-cyan-400">-- °C</span></p>
+                </div>
+                <!-- Thống kê Gas -->
+                <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700/60 space-y-2">
+                    <h4 class="text-emerald-400 font-medium text-sm">☁️ Khí Gas</h4>
+                    <p class="text-sm text-slate-300 flex justify-between"><span>Trung bình:</span> <span id="stat-gas-avg" class="font-semibold">-- PPM</span></p>
+                    <p class="text-sm text-slate-300 flex justify-between"><span>Cao nhất (Max):</span> <span id="stat-gas-max" class="font-semibold text-amber-400">-- PPM</span></p>
+                    <p class="text-sm text-slate-300 flex justify-between"><span>Thấp nhất (Min):</span> <span id="stat-gas-min" class="font-semibold text-cyan-400">-- PPM</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Xử lý Logic -->
+    <script>
+        // --- 1. Cấu hình Supabase ---
+        const SUPABASE_URL = "https://eplpckbktkerxbyszvjb.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_lgsVv6UwgBn_I-xLe_WSkA_gdsH2rmG";
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Biến lưu trữ dữ liệu lịch sử hiển thị
+        let historyData = [];
+
+        // --- 2. Khởi tạo Biểu đồ Chart.js ---
+        const tempCtx = document.getElementById('tempChart').getContext('2d');
+        const tempChart = new Chart(tempCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Nhiệt độ (°C)', data: [], borderColor: '#fbbf24', backgroundColor: 'rgba(251, 191, 36, 0.1)', tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
+        });
+
+        const gasCtx = document.getElementById('gasChart').getContext('2d');
+        const gasChart = new Chart(gasCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Khí Gas (PPM)', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } } }
+        });
+
+        // --- 3. Hàm cập nhật Biểu đồ và Thống kê ---
+        function updateCharts() {
+            tempChart.data.labels = historyData.map(item => item.time);
+            tempChart.data.datasets[0].data = historyData.map(item => item.temp);
+            tempChart.update();
+
+            gasChart.data.labels = historyData.map(item => item.time);
+            gasChart.data.datasets[0].data = historyData.map(item => item.gas);
+            gasChart.update();
+        }
+
+        function calculateStats() {
+            if (historyData.length === 0) return;
+
+            const temps = historyData.map(i => i.temp);
+            const gases = historyData.map(i => i.gas);
+
+            const tempAvg = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1);
+            const tempMax = Math.max(...temps);
+            const tempMin = Math.min(...temps);
+
+            const gasAvg = (gases.reduce((a, b) => a + b, 0) / gases.length).toFixed(0);
+            const gasMax = Math.max(...gases);
+            const gasMin = Math.min(...gases);
+
+            document.getElementById('stat-temp-avg').innerText = `${tempAvg} °C`;
+            document.getElementById('stat-temp-max').innerText = `${tempMax} °C`;
+            document.getElementById('stat-temp-min').innerText = `${tempMin} °C`;
+
+            document.getElementById('stat-gas-avg').innerText = `${gasAvg} PPM`;
+            document.getElementById('stat-gas-max').innerText = `${gasMax} PPM`;
+            document.getElementById('stat-gas-min').innerText = `${gasMin} PPM`;
+        }
+
+        // --- 4. Tải dữ liệu lịch sử từ Supabase ---
+async function loadSupabaseData() {
+    console.log("☁️ Đang tải dữ liệu từ Supabase...");
+
+    const { data, error } = await supabaseClient
+        .from("sensor_data")
+        .select("id, temp, gas, temp_alert, gas_alert, created_at")
+        .order("created_at", { ascending: true })
+        .limit(20);
+
+    if (error) {
+        console.error("❌ Lỗi Supabase:", error.message);
+        return;
+    }
+
+    console.log("☁️ Supabase trả về:", data);
+
+    if (!data || data.length === 0) {
+        console.log("⚠️ Supabase chưa có dữ liệu");
+        return;
+    }
+
+    // Đưa dữ liệu Supabase vào lịch sử
+    historyData = data.map(item => ({
+        time: new Date(item.created_at).toLocaleTimeString(),
+        temp: Number(item.temp),
+        gas: Number(item.gas)
+    }));
+
+    // Cập nhật biểu đồ
+    updateCharts();
+
+    // Cập nhật thống kê
+    calculateStats();
+
+    // Lấy bản ghi mới nhất
+    const latest = historyData[historyData.length - 1];
+
+    document.getElementById("val-temp").innerText =
+        `${latest.temp.toFixed(1)} °C`;
+
+    document.getElementById("val-gas").innerText =
+        `${latest.gas} PPM`;
+
+    console.log(
+        `✅ Đã tải ${historyData.length} bản ghi từ Supabase`
+    );
+}
+        // --- 5. Kết nối MQTT Broker ---
+        const mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+        mqttClient.on('connect', () => {
+            console.log("Connected to MQTT Broker");
+            mqttClient.subscribe('lab/sensor', (err) => {
+                if (!err) {
+                    document.getElementById('mqtt-status').className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    document.getElementById('mqtt-status').innerText = "ESP32: Online";
+                }
+            });
+        });
+
+        mqttClient.on('message', (topic, payload) => {
+            if (topic === 'lab/sensor') {
+                try {
+                    const data = JSON.parse(payload.toString());
+                    const timeNow = new Date().toLocaleTimeString();
+
+                    // Cập nhật giá trị trực tiếp
+                    document.getElementById('val-temp').innerText = `${Number(data.temp).toFixed(1)} °C`;
+                    document.getElementById('val-gas').innerText = `${Number(data.gas)} PPM`;
+
+                    // Đẩy dữ liệu mới vào mảng lịch sử
+                    historyData.push({
+                        time: timeNow,
+                        temp: Number(data.temp),
+                        gas: Number(data.gas)
+                    });
+
+                    // Giữ lại tối đa 20 điểm dữ liệu trên biểu đồ cho gọn
+                    if (historyData.length > 20) {
+                        historyData.shift();
+                    }
+
+                    updateCharts();
+                    calculateStats();
+                } catch (e) {
+                    console.error("Lỗi phân tích JSON từ MQTT:", e);
+                }
+            }
+        });
+
+        // Chạy tải dữ liệu Supabase khi trang khởi động
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSupabaseData();
+        });
+    </script>
+</body>
+</html>
