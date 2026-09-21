@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32 Advanced MQTT Monitoring Dashboard</title>
 
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- MQTT.js -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
   <style>
@@ -17,1404 +20,425 @@
     .led-red { background-color: #ef4444; box-shadow: 0 0 12px #ef4444; }
   </style>
 </head>
-
 <body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
 
   <div class="max-w-6xl mx-auto space-y-6">
 
     <!-- HEADER & STATUS -->
     <header class="flex flex-col md:flex-row justify-between items-center bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700 gap-4">
-
       <div>
-        <h1 class="text-2xl font-bold text-blue-400">
-          ESP32 ADVANCED DASHBOARD
-        </h1>
-
-        <p class="text-sm text-gray-400">
-          Hệ thống Giám sát, Phân tích & Cảnh báo Môi trường
-        </p>
+        <h1 class="text-2xl font-bold text-blue-400">ESP32 ADVANCED DASHBOARD</h1>
+        <p class="text-sm text-gray-400">Hệ thống Giám sát, Phân tích & Cảnh báo Môi trường</p>
       </div>
-
       <div class="flex flex-wrap items-center gap-3">
-
-        <span id="mqtt-status"
-          class="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+        <!-- Trạng thái MQTT -->
+        <span id="mqtt-status" class="px-3 py-1 text-xs font-semibold rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
           MQTT: Đang kết nối...
         </span>
-
-        <span id="esp-status"
-          class="px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
+        <!-- Trạng thái ESP32 Online/Offline -->
+        <span id="esp-status" class="px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
           ESP32: Offline
         </span>
-
-        <button onclick="exportToCSV()"
-          class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition font-medium">
+        <!-- Nút Xuất CSV -->
+        <button onclick="exportToCSV()" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition font-medium">
           📥 Xuất CSV
         </button>
-
-        <button onclick="clearStoredData()"
-          class="px-3 py-1 text-xs bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition">
+        <!-- Nút Xóa Lịch Sử -->
+        <button onclick="clearStoredData()" class="px-3 py-1 text-xs bg-red-600/80 hover:bg-red-600 text-white rounded-lg transition">
           🗑️ Xóa Lịch Sử
         </button>
-
-        <!-- CHỈ THÊM NÚT NÀY -->
-        <button onclick="openSmart4WiFi()"
-          class="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition">
+        <button onclick="openSmart4WiFi()" class="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition">
           📶 Cấu hình WiFi
         </button>
-
       </div>
     </header>
 
-
     <!-- THÔNG SỐ HIỆN TẠI -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
+      <!-- Card Nhiệt Độ -->
       <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-md flex justify-between items-center">
         <div>
-          <p class="text-gray-400 text-sm font-medium">
-            Nhiệt độ hiện tại
-          </p>
-
-          <p id="val-temp"
-            class="text-4xl font-extrabold text-amber-400 mt-2">
-            -- °C
-          </p>
-
-          <p id="alert-temp-badge"
-            class="text-xs font-semibold mt-2 text-gray-400">
-            Trạng thái: BÌNH THƯỜNG
-          </p>
+          <p class="text-gray-400 text-sm font-medium">Nhiệt độ hiện tại</p>
+          <p id="val-temp" class="text-4xl font-extrabold text-amber-400 mt-2">-- °C</p>
+          <p id="alert-temp-badge" class="text-xs font-semibold mt-2 text-gray-400">Trạng thái: BÌNH THƯỜNG</p>
         </div>
-
         <div class="text-5xl">🌡️</div>
       </div>
 
-
+      <!-- Card Khí Gas -->
       <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-md flex justify-between items-center">
         <div>
-          <p class="text-gray-400 text-sm font-medium">
-            Nồng độ Khí Gas
-          </p>
-
-          <p id="val-gas"
-            class="text-4xl font-extrabold text-cyan-400 mt-2">
-            -- PPM
-          </p>
-
-          <p id="alert-gas-badge"
-            class="text-xs font-semibold mt-2 text-gray-400">
-            Trạng thái: BÌNH THƯỜNG
-          </p>
+          <p class="text-gray-400 text-sm font-medium">Nồng độ Khí Gas</p>
+          <p id="val-gas" class="text-4xl font-extrabold text-cyan-400 mt-2">-- PPM</p>
+          <p id="alert-gas-badge" class="text-xs font-semibold mt-2 text-gray-400">Trạng thái: BÌNH THƯỜNG</p>
         </div>
-
         <div class="text-5xl">💨</div>
       </div>
-
     </div>
 
-
-    <!-- BANNER CẢNH BÁO -->
-    <div id="banner-status"
-      class="p-4 rounded-xl text-center font-bold bg-green-900/40 text-green-300 border border-green-700">
+    <!-- BANNER CẢNH BÁO TỔNG HỢP -->
+    <div id="banner-status" class="p-4 rounded-xl text-center font-bold bg-green-900/40 text-green-300 border border-green-700">
       STATUS: BÌNH THƯỜNG (NORMAL)
     </div>
 
-
-    <!-- 4 LED -->
+    <!-- TRẠNG THÁI 4 LED MÔ PHỎNG -->
     <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-md">
-
-      <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
-        💡 TRẠNG THÁI 4 LED HỆ THỐNG
-      </h2>
-
+      <h2 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">💡 TRẠNG THÁI 4 LED HỆ THỐNG</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-
         <div class="bg-gray-900 p-3 rounded-xl border border-gray-700">
-          <div id="led-temp-green"
-            class="led-circle led-off mb-2"></div>
-
-          <p class="text-xs text-gray-300 font-medium">
-            LED Temp Xanh
-          </p>
-
-          <p class="text-[10px] text-gray-500">
-            &lt; 30°C
-          </p>
+          <div id="led-temp-green" class="led-circle led-off mb-2"></div>
+          <p class="text-xs text-gray-300 font-medium">LED Temp Xanh</p>
+          <p class="text-[10px] text-gray-500">&lt; 30°C</p>
         </div>
-
-
         <div class="bg-gray-900 p-3 rounded-xl border border-gray-700">
-          <div id="led-temp-red"
-            class="led-circle led-off mb-2"></div>
-
-          <p class="text-xs text-gray-300 font-medium">
-            LED Temp Đỏ
-          </p>
-
-          <p class="text-[10px] text-gray-500">
-            &ge; 30°C
-          </p>
+          <div id="led-temp-red" class="led-circle led-off mb-2"></div>
+          <p class="text-xs text-gray-300 font-medium">LED Temp Đỏ</p>
+          <p class="text-[10px] text-gray-500">&ge; 30°C</p>
         </div>
-
-
         <div class="bg-gray-900 p-3 rounded-xl border border-gray-700">
-          <div id="led-gas-green"
-            class="led-circle led-off mb-2"></div>
-
-          <p class="text-xs text-gray-300 font-medium">
-            LED Gas Xanh
-          </p>
-
-          <p class="text-[10px] text-gray-500">
-            &lt; 2000
-          </p>
+          <div id="led-gas-green" class="led-circle led-off mb-2"></div>
+          <p class="text-xs text-gray-300 font-medium">LED Gas Xanh</p>
+          <p class="text-[10px] text-gray-500">&lt; 2000</p>
         </div>
-
-
         <div class="bg-gray-900 p-3 rounded-xl border border-gray-700">
-          <div id="led-gas-red"
-            class="led-circle led-off mb-2"></div>
-
-          <p class="text-xs text-gray-300 font-medium">
-            LED Gas Đỏ
-          </p>
-
-          <p class="text-[10px] text-gray-500">
-            &ge; 2000
-          </p>
+          <div id="led-gas-red" class="led-circle led-off mb-2"></div>
+          <p class="text-xs text-gray-300 font-medium">LED Gas Đỏ</p>
+          <p class="text-[10px] text-gray-500">&ge; 2000</p>
         </div>
-
       </div>
     </div>
 
-
-    <!-- BIỂU ĐỒ -->
+    <!-- BIỂU ĐỒ DỮ LIỆU -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
       <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700">
-
-        <h3 class="text-md font-semibold text-amber-400 mb-3">
-          📈 BIỂU ĐỒ NHIỆT ĐỘ (°C)
-        </h3>
-
-        <div class="h-64">
-          <canvas id="tempChart"></canvas>
-        </div>
-
+        <h3 class="text-md font-semibold text-amber-400 mb-3">📈 BIỂU ĐỒ NHIỆT ĐỘ (°C)</h3>
+        <div class="h-64"><canvas id="tempChart"></canvas></div>
       </div>
-
-
       <div class="bg-gray-800 p-5 rounded-2xl border border-gray-700">
-
-        <h3 class="text-md font-semibold text-cyan-400 mb-3">
-          📈 BIỂU ĐỒ KHÍ GAS (PPM)
-        </h3>
-
-        <div class="h-64">
-          <canvas id="gasChart"></canvas>
-        </div>
-
+        <h3 class="text-md font-semibold text-cyan-400 mb-3">📈 BIỂU ĐỒ KHÍ GAS (PPM)</h3>
+        <div class="h-64"><canvas id="gasChart"></canvas></div>
       </div>
-
     </div>
 
-
-    <!-- PHÂN TÍCH -->
+    <!-- PHÂN TÍCH & ĐÁNH GIÁ THỐNG KÊ -->
     <div class="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-md space-y-4">
-
-      <h2 class="text-lg font-semibold text-gray-200 flex items-center gap-2">
-        📊 PHÂN TÍCH DỮ LIỆU THỐNG KÊ
-      </h2>
-
-
+      <h2 class="text-lg font-semibold text-gray-200 flex items-center gap-2">📊 PHÂN TÍCH DỮ LIỆU THỐNG KÊ</h2>
+      
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        <!-- NHIỆT ĐỘ -->
+        <!-- Bảng Thống Kê Nhiệt Độ -->
         <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 space-y-2 text-sm">
-
-          <p class="text-amber-400 font-bold border-b border-gray-800 pb-2">
-            🌡️ Nhiệt độ
-          </p>
-
-          <div class="flex justify-between">
-            <span>Trung bình:</span>
-            <span id="stat-temp-avg" class="font-bold">-- °C</span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Cao nhất (Max):</span>
-            <span id="stat-temp-max" class="font-bold text-red-400">
-              -- °C
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Thấp nhất (Min):</span>
-            <span id="stat-temp-min" class="font-bold text-green-400">
-              -- °C
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Cảnh báo nhẹ (&ge;28°C):</span>
-            <span id="stat-temp-warn"
-              class="font-bold text-yellow-500">
-              0 lần
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Nguy hiểm / Quá nhiệt (&ge;30°C):</span>
-            <span id="stat-temp-danger"
-              class="font-bold text-red-500">
-              0 lần
-            </span>
-          </div>
-
+          <p class="text-amber-400 font-bold border-b border-gray-800 pb-2">🌡️ Nhiệt độ</p>
+          <div class="flex justify-between"><span>Trung bình:</span> <span id="stat-temp-avg" class="font-bold">-- °C</span></div>
+          <div class="flex justify-between"><span>Cao nhất (Max):</span> <span id="stat-temp-max" class="font-bold text-red-400">-- °C</span></div>
+          <div class="flex justify-between"><span>Thấp nhất (Min):</span> <span id="stat-temp-min" class="font-bold text-green-400">-- °C</span></div>
+          <div class="flex justify-between"><span>Cảnh báo nhẹ (&ge;28°C):</span> <span id="stat-temp-warn" class="font-bold text-yellow-500">0 lần</span></div>
+          <div class="flex justify-between"><span>Nguy hiểm / Quá nhiệt (&ge;30°C):</span> <span id="stat-temp-danger" class="font-bold text-red-500">0 lần</span></div>
         </div>
 
-
-        <!-- GAS -->
+        <!-- Bảng Thống Kê Gas -->
         <div class="bg-gray-900 p-4 rounded-xl border border-gray-700 space-y-2 text-sm">
-
-          <p class="text-cyan-400 font-bold border-b border-gray-800 pb-2">
-            💨 Khí Gas
-          </p>
-
-          <div class="flex justify-between">
-            <span>Trung bình:</span>
-            <span id="stat-gas-avg" class="font-bold">
-              -- PPM
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Cao nhất (Max):</span>
-            <span id="stat-gas-max"
-              class="font-bold text-red-400">
-              -- PPM
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Thấp nhất (Min):</span>
-            <span id="stat-gas-min"
-              class="font-bold text-green-400">
-              -- PPM
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Cảnh báo nhẹ (1500-2000):</span>
-            <span id="stat-gas-warn"
-              class="font-bold text-yellow-500">
-              0 lần
-            </span>
-          </div>
-
-          <div class="flex justify-between">
-            <span>Nguy hiểm / Rò rỉ (&ge;2000):</span>
-            <span id="stat-gas-danger"
-              class="font-bold text-red-500">
-              0 lần
-            </span>
-          </div>
-
+          <p class="text-cyan-400 font-bold border-b border-gray-800 pb-2">💨 Khí Gas</p>
+          <div class="flex justify-between"><span>Trung bình:</span> <span id="stat-gas-avg" class="font-bold">-- PPM</span></div>
+          <div class="flex justify-between"><span>Cao nhất (Max):</span> <span id="stat-gas-max" class="font-bold text-red-400">-- PPM</span></div>
+          <div class="flex justify-between"><span>Thấp nhất (Min):</span> <span id="stat-gas-min" class="font-bold text-green-400">-- PPM</span></div>
+          <div class="flex justify-between"><span>Cảnh báo nhẹ (1500-2000):</span> <span id="stat-gas-warn" class="font-bold text-yellow-500">0 lần</span></div>
+          <div class="flex justify-between"><span>Nguy hiểm / Rò rỉ (&ge;2000):</span> <span id="stat-gas-danger" class="font-bold text-red-500">0 lần</span></div>
         </div>
-
       </div>
 
-
-      <!-- ĐÁNH GIÁ -->
+      <!-- ĐÁNH GIÁ TỰ ĐỘNG -->
       <div class="bg-gray-900/80 p-4 rounded-xl border border-blue-500/30">
-
-        <h4 class="text-sm font-semibold text-blue-300 mb-2">
-          📝 ĐÁNH GIÁ TÌNH TRẠNG HỆ THỐNG:
-        </h4>
-
-        <div id="evaluation-text"
-          class="text-sm text-gray-300 space-y-1">
+        <h4 class="text-sm font-semibold text-blue-300 mb-2">📝 ĐÁNH GIÁ TÌNH TRẠNG HỆ THỐNG:</h4>
+        <div id="evaluation-text" class="text-sm text-gray-300 space-y-1">
           Đang chờ dữ liệu từ thiết bị...
         </div>
-
       </div>
-
     </div>
 
   </div>
 
-
   <script>
+    // SMART4 BACKEND - Render
+    const API_URL = "https://smart4-backend.onrender.com/data";
 
-    const MQTT_BROKER = "ws://192.168.102.7:9001";
-    const MQTT_TOPIC = "lab/sensor";
-
-
-    // ==============================
-    // QUẢN LÝ DỮ LIỆU
-    // ==============================
-
+    // Quản lý dữ liệu
     let historyData = [];
-    let lastMessageTime = Date.now();
+    let lastMessageTime = 0;
 
-
-    // ==============================
-    // LOAD DATABASE
-    // ==============================
-
+    // Lấy dữ liệu từ Render -> Supabase
     async function loadDatabaseData() {
-
       try {
+        const response = await fetch(API_URL, { cache: "no-store" });
 
-        const response =
-          await fetch("http://localhost:3000/api/data");
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
 
         const data = await response.json();
 
-        if (data.error) {
-
-          console.error(
-            "❌ Database Error:",
-            data.error
-          );
-
+        if (!Array.isArray(data) || data.length === 0) {
+          setBackendStatus(false);
           return;
         }
 
-
-        historyData = data.reverse().map(row => ({
-
-          time: new Date(
-            row.created_at
-          ).toLocaleTimeString(),
-
-          temp: row.temp,
-
-          gas: row.gas
-
+        // Dữ liệu từ Render/Supabase
+        historyData = data.slice(-100).map(row => ({
+          time: new Date(row.created_at || row.timestamp).toLocaleTimeString(),
+          temp: Number(row.temp),
+          gas: Number(row.gas),
+          temp_alert: Boolean(row.temp_alert),
+          gas_alert: Boolean(row.gas_alert)
         }));
 
+        const latest = historyData[historyData.length - 1];
 
+        if (!latest || Number.isNaN(latest.temp) || Number.isNaN(latest.gas)) {
+          setBackendStatus(false);
+          return;
+        }
+
+        lastMessageTime = Date.now();
+        setBackendStatus(true);
+        updateCurrentData(latest);
         updateCharts();
-
         calculateStats();
 
-
-        console.log(
-          "✅ Đã tải",
-          historyData.length,
-          "bản ghi từ SQLite"
-        );
-
-
       } catch (error) {
-
-        console.error(
-          "❌ Không thể lấy dữ liệu từ Database:",
-          error
-        );
-
+        console.error("❌ Không thể lấy dữ liệu từ Render:", error);
+        setBackendStatus(false);
       }
-
     }
 
+    function setBackendStatus(connected) {
+      const mqttStatus = document.getElementById('mqtt-status');
 
-    // ==============================
-    // LƯU DỮ LIỆU
-    // ==============================
+      if (connected) {
+        mqttStatus.innerText = "MQTT: Connected";
+        mqttStatus.className = "px-3 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-300 border border-green-500/30";
+      } else {
+        mqttStatus.innerText = "MQTT: Mất kết nối";
+        mqttStatus.className = "px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30";
+      }
+    }
+
+    function updateCurrentData(payload) {
+      const temp = Number(payload.temp);
+      const gas = Number(payload.gas);
+      const tempAlert = temp >= 30;
+      const gasAlert = gas >= 2000;
+
+      document.getElementById('val-temp').innerText = `${temp.toFixed(1)} °C`;
+      document.getElementById('val-gas').innerText = `${gas} PPM`;
+
+      const espStatusEl = document.getElementById('esp-status');
+      espStatusEl.innerText = "ESP32: Online";
+      espStatusEl.className = "px-3 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-300 border border-green-500/30";
+
+      const badgeTemp = document.getElementById('alert-temp-badge');
+      if (temp >= 30.0) {
+        badgeTemp.innerText = "Trạng thái: NGUY HIỂM (>=30°C)";
+        badgeTemp.className = "text-xs font-bold mt-2 text-red-400 animate-pulse";
+      } else if (temp >= 28.0) {
+        badgeTemp.innerText = "Trạng thái: CẢNH BÁO NHẸ (>=28°C)";
+        badgeTemp.className = "text-xs font-bold mt-2 text-yellow-400";
+      } else {
+        badgeTemp.innerText = "Trạng thái: BÌNH THƯỜNG";
+        badgeTemp.className = "text-xs font-semibold mt-2 text-gray-400";
+      }
+
+      const badgeGas = document.getElementById('alert-gas-badge');
+      if (gas >= 2000) {
+        badgeGas.innerText = "Trạng thái: NGUY HIỂM RÒ RỈ!";
+        badgeGas.className = "text-xs font-bold mt-2 text-red-400 animate-pulse";
+      } else if (gas >= 1500) {
+        badgeGas.innerText = "Trạng thái: CẢNH BÁO NHẸ";
+        badgeGas.className = "text-xs font-bold mt-2 text-yellow-400";
+      } else {
+        badgeGas.innerText = "Trạng thái: BÌNH THƯỜNG";
+        badgeGas.className = "text-xs font-semibold mt-2 text-gray-400";
+      }
+
+      const banner = document.getElementById('banner-status');
+      if (tempAlert && gasAlert) {
+        banner.innerText = "🚨 DANGER ALARM: NGUY HIỂM TOÀN HỆ THỐNG!";
+        banner.className = "p-4 rounded-xl text-center font-bold bg-red-900/80 text-red-200 border border-red-500 animate-bounce";
+      } else if (gasAlert) {
+        banner.innerText = "🔥 GAS LEAK: PHÁT HIỆN NỒNG ĐỘ GAS CAO!";
+        banner.className = "p-4 rounded-xl text-center font-bold bg-orange-900/80 text-orange-200 border border-orange-500";
+      } else if (tempAlert) {
+        banner.innerText = "🌡️ OVERHEAT: NHIỆT ĐỘ VƯỢT NGƯỠNG AN TOÀN!";
+        banner.className = "p-4 rounded-xl text-center font-bold bg-amber-900/80 text-amber-200 border border-amber-500";
+      } else {
+        banner.innerText = "✅ STATUS: MÔI TRƯỜNG BÌNH THƯỜNG (NORMAL)";
+        banner.className = "p-4 rounded-xl text-center font-bold bg-green-900/40 text-green-300 border border-green-700";
+      }
+
+      document.getElementById('led-temp-green').className = `led-circle ${!tempAlert ? 'led-green' : 'led-off'}`;
+      document.getElementById('led-temp-red').className = `led-circle ${tempAlert ? 'led-red' : 'led-off'}`;
+      document.getElementById('led-gas-green').className = `led-circle ${!gasAlert ? 'led-green' : 'led-off'}`;
+      document.getElementById('led-gas-red').className = `led-circle ${gasAlert ? 'led-red' : 'led-off'}`;
+    }
 
     function saveToStorage(record) {
-
       historyData.push(record);
-
       if (historyData.length > 100) {
-
         historyData.shift();
-
       }
-
     }
-
-
-    // ==============================
-    // XÓA LỊCH SỬ
-    // ==============================
 
     function clearStoredData() {
-
       historyData = [];
-
-      localStorage.removeItem(
-        'esp32_sensor_history_v2'
-      );
-
+      localStorage.removeItem('esp32_sensor_history_v2');
       updateCharts();
-
       calculateStats();
-
     }
 
-
-    // ==============================
-    // XUẤT CSV
-    // ==============================
-
+    // 1. XUẤT FILE CSV
     function exportToCSV() {
-
       if (historyData.length === 0) {
-
-        alert(
-          "Chưa có dữ liệu để xuất file!"
-        );
-
+        alert("Chưa có dữ liệu để xuất file!");
         return;
-
       }
-
-
-      let csv =
-        "Thời gian,Nhiệt độ (°C),Khí Gas (PPM)\n";
-
-
-      historyData.forEach(d => {
-
-        csv +=
-          `${d.time},${d.temp},${d.gas}\n`;
-
+      let csvContent = "data:text/csv;charset=utf-8,ThoiGian,NhietDo_C,Gas_PPM\r\n";
+      historyData.forEach(row => {
+        csvContent += `${row.time},${row.temp},${row.gas}\r\n`;
       });
-
-
-      const blob = new Blob(
-        [csv],
-        {
-          type: "text/csv;charset=utf-8;"
-        }
-      );
-
-
-      const url =
-        URL.createObjectURL(blob);
-
-
-      const link =
-        document.createElement("a");
-
-      link.setAttribute(
-        "href",
-        url
-      );
-
-      link.setAttribute(
-        "download",
-        "smart4_data.csv"
-      );
-
-      link.style.visibility = "hidden";
-
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `esp32_sensor_data_${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
-
       link.click();
-
       document.body.removeChild(link);
-
     }
 
-
-    // ==============================
-    // AUDIO
-    // ==============================
-
+    // 3. CẢNH BÁO ÂM THANH (Web Audio API)
     let audioCtx = null;
-
-
-    document.addEventListener(
-      "click",
-      async () => {
-
-        console.log(
-          "🖱️ ĐÃ CLICK TRANG"
-        );
-
-
-        if (!audioCtx) {
-
-          audioCtx =
-            new (
-              window.AudioContext ||
-              window.webkitAudioContext
-            )();
-
-        }
-
-
-        if (
-          audioCtx.state ===
-          "suspended"
-        ) {
-
-          await audioCtx.resume();
-
-        }
-
-
-        console.log(
-          "🔊 Audio đã được kích hoạt"
-        );
-
-      },
-      { once: true }
-    );
-
+    document.addEventListener("click", async () => {
+      console.log("🖱️ ĐÃ CLICK TRANG");
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+      console.log("🔊 Audio đã được kích hoạt");
+    }, { once: true });
 
     function playBeep() {
-
       try {
-
-        if (
-          !audioCtx ||
-          audioCtx.state !== "running"
-        ) {
-
-          return;
-
-        }
-
-
-        const osc =
-          audioCtx.createOscillator();
-
-        const gain =
-          audioCtx.createGain();
-
-
+        if (!audioCtx || audioCtx.state !== "running") return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
         osc.type = "sine";
-
-
-        osc.frequency.setValueAtTime(
-          880,
-          audioCtx.currentTime
-        );
-
-
-        gain.gain.setValueAtTime(
-          0.1,
-          audioCtx.currentTime
-        );
-
-
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
         osc.connect(gain);
-
-        gain.connect(
-          audioCtx.destination
-        );
-
-
+        gain.connect(audioCtx.destination);
         osc.start();
-
-
-        osc.stop(
-          audioCtx.currentTime + 0.2
-        );
-
-
+        osc.stop(audioCtx.currentTime + 0.2);
       } catch (e) {
-
-        console.error(
-          "Audio Error:",
-          e
-        );
-
+        console.error("Audio Error:", e);
       }
-
     }
 
-
-    // ==============================
-    // CHART
-    // ==============================
-
+    // Cấu hình Chart.js
     const chartOptions = {
-
       responsive: true,
-
       maintainAspectRatio: false,
-
       scales: {
-
-        x: {
-
-          ticks: {
-            color: '#9ca3af'
-          },
-
-          grid: {
-            color: '#374151'
-          }
-
-        },
-
-        y: {
-
-          ticks: {
-            color: '#9ca3af'
-          },
-
-          grid: {
-            color: '#374151'
-          }
-
-        }
-
+        x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
+        y: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } }
       },
-
-      plugins: {
-
-        legend: {
-          display: false
-        }
-
-      }
-
+      plugins: { legend: { display: false } }
     };
 
+    const tempChart = new Chart(document.getElementById('tempChart'), {
+      type: 'line',
+      data: { labels: [], datasets: [{ data: [], borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.3 }] },
+      options: chartOptions
+    });
 
-    const tempChart =
-      new Chart(
-        document.getElementById(
-          'tempChart'
-        ),
-        {
-
-          type: 'line',
-
-          data: {
-
-            labels: [],
-
-            datasets: [{
-
-              data: [],
-
-              borderColor: '#f59e0b',
-
-              backgroundColor:
-                'rgba(245, 158, 11, 0.1)',
-
-              fill: true,
-
-              tension: 0.3
-
-            }]
-
-          },
-
-          options: chartOptions
-
-        }
-      );
-
-
-    const gasChart =
-      new Chart(
-        document.getElementById(
-          'gasChart'
-        ),
-        {
-
-          type: 'line',
-
-          data: {
-
-            labels: [],
-
-            datasets: [{
-
-              data: [],
-
-              borderColor: '#06b6d4',
-
-              backgroundColor:
-                'rgba(6, 182, 212, 0.1)',
-
-              fill: true,
-
-              tension: 0.3
-
-            }]
-
-          },
-
-          options: chartOptions
-
-        }
-      );
-
+    const gasChart = new Chart(document.getElementById('gasChart'), {
+      type: 'line',
+      data: { labels: [], datasets: [{ data: [], borderColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.1)', fill: true, tension: 0.3 }] },
+      options: chartOptions
+    });
 
     function updateCharts() {
-
-      tempChart.data.labels =
-        historyData.map(
-          d => d.time
-        );
-
-      tempChart.data.datasets[0].data =
-        historyData.map(
-          d => d.temp
-        );
-
+      tempChart.data.labels = historyData.map(d => d.time);
+      tempChart.data.datasets[0].data = historyData.map(d => d.temp);
       tempChart.update();
-
-
-      gasChart.data.labels =
-        historyData.map(
-          d => d.time
-        );
-
-      gasChart.data.datasets[0].data =
-        historyData.map(
-          d => d.gas
-        );
-
+      gasChart.data.labels = historyData.map(d => d.time);
+      gasChart.data.datasets[0].data = historyData.map(d => d.gas);
       gasChart.update();
-
     }
 
-
-    // ==============================
-    // THỐNG KÊ
-    // ==============================
-
+    // 2 & 5. TÍNH TOÁN, PHÂN 3 MỨC & ĐÁNH GIÁ TỰ ĐỘNG
     function calculateStats() {
-
-      if (
-        historyData.length === 0
-      ) {
-
-        return;
-
-      }
-
-
-      const temps =
-        historyData.map(
-          d => d.temp
-        );
-
-
-      const gases =
-        historyData.map(
-          d => d.gas
-        );
-
-
-      const tempAvg =
-        (
-          temps.reduce(
-            (a, b) => a + b,
-            0
-          ) /
-          temps.length
-        ).toFixed(1);
-
-
-      const tempMax =
-        Math.max(
-          ...temps
-        ).toFixed(1);
-
-
-      const tempMin =
-        Math.min(
-          ...temps
-        ).toFixed(1);
-
-
-      const tempWarn =
-        temps.filter(
-          t =>
-            t >= 28.0 &&
-            t < 30.0
-        ).length;
-
-
-      const tempDanger =
-        temps.filter(
-          t =>
-            t >= 30.0
-        ).length;
-
-
-      const gasAvg =
-        Math.round(
-          gases.reduce(
-            (a, b) => a + b,
-            0
-          ) /
-          gases.length
-        );
-
-
-      const gasMax =
-        Math.max(
-          ...gases
-        );
-
-
-      const gasMin =
-        Math.min(
-          ...gases
-        );
-
-
-      const gasWarn =
-        gases.filter(
-          g =>
-            g >= 1500 &&
-            g < 2000
-        ).length;
-
-
-      const gasDanger =
-        gases.filter(
-          g =>
-            g >= 2000
-        ).length;
-
-
-      document.getElementById(
-        'stat-temp-avg'
-      ).innerText =
-        `${tempAvg} °C`;
-
-
-      document.getElementById(
-        'stat-temp-max'
-      ).innerText =
-        `${tempMax} °C`;
-
-
-      document.getElementById(
-        'stat-temp-min'
-      ).innerText =
-        `${tempMin} °C`;
-
-
-      document.getElementById(
-        'stat-temp-warn'
-      ).innerText =
-        `${tempWarn} lần`;
-
-
-      document.getElementById(
-        'stat-temp-danger'
-      ).innerText =
-        `${tempDanger} lần`;
-
-
-      document.getElementById(
-        'stat-gas-avg'
-      ).innerText =
-        `${gasAvg} PPM`;
-
-
-      document.getElementById(
-        'stat-gas-max'
-      ).innerText =
-        `${gasMax} PPM`;
-
-
-      document.getElementById(
-        'stat-gas-min'
-      ).innerText =
-        `${gasMin} PPM`;
-
-
-      document.getElementById(
-        'stat-gas-warn'
-      ).innerText =
-        `${gasWarn} lần`;
-
-
-      document.getElementById(
-        'stat-gas-danger'
-      ).innerText =
-        `${gasDanger} lần`;
-
-
+      if (historyData.length === 0) return;
+      const temps = historyData.map(d => d.temp);
+      const gases = historyData.map(d => d.gas);
+      const tempAvg = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1);
+      const tempMax = Math.max(...temps).toFixed(1);
+      const tempMin = Math.min(...temps).toFixed(1);
+      const tempWarn = temps.filter(t => t >= 28.0 && t < 30.0).length;
+      const tempDanger = temps.filter(t => t >= 30.0).length;
+      const gasAvg = Math.round(gases.reduce((a, b) => a + b, 0) / gases.length);
+      const gasMax = Math.max(...gases);
+      const gasMin = Math.min(...gases);
+      const gasWarn = gases.filter(g => g >= 1500 && g < 2000).length;
+      const gasDanger = gases.filter(g => g >= 2000).length;
+      document.getElementById('stat-temp-avg').innerText = `${tempAvg} °C`;
+      document.getElementById('stat-temp-max').innerText = `${tempMax} °C`;
+      document.getElementById('stat-temp-min').innerText = `${tempMin} °C`;
+      document.getElementById('stat-temp-warn').innerText = `${tempWarn} lần`;
+      document.getElementById('stat-temp-danger').innerText = `${tempDanger} lần`;
+      document.getElementById('stat-gas-avg').innerText = `${gasAvg} PPM`;
+      document.getElementById('stat-gas-max').innerText = `${gasMax} PPM`;
+      document.getElementById('stat-gas-min').innerText = `${gasMin} PPM`;
+      document.getElementById('stat-gas-warn').innerText = `${gasWarn} lần`;
+      document.getElementById('stat-gas-danger').innerText = `${gasDanger} lần`;
       let evalHTML = '';
-
-
       if (tempDanger > 0) {
-
-        evalHTML +=
-          `<p class="text-red-400">
-          ⚠️ <b>Nhiệt độ:</b>
-          Đã chạm mức nguy hiểm
-          (&ge;30°C)
-          <b>${tempDanger} lần</b>
-          (Max: ${tempMax}°C).
-          Yêu cầu kích hoạt quạt thông gió.
-          </p>`;
-
+        evalHTML += `<p class="text-red-400">⚠️ <b>Nhiệt độ:</b> Đã chạm mức nguy hiểm (&ge;30°C) <b>${tempDanger} lần</b> (Max: ${tempMax}°C). Yêu cầu kích hoạt quạt thông gió.</p>`;
+      } else if (tempWarn > 0) {
+        evalHTML += `<p class="text-yellow-400">⚡ <b>Nhiệt độ:</b> Ghi nhận cảnh báo nhẹ (28-30°C) <b>${tempWarn} lần</b>. Cần theo dõi thêm.</p>`;
+      } else {
+        evalHTML += `<p class="text-green-400">✅ <b>Nhiệt độ:</b> Duy trì ổn định trong vùng an toàn (TB: ${tempAvg}°C).</p>`;
       }
-
-      else if (tempWarn > 0) {
-
-        evalHTML +=
-          `<p class="text-yellow-400">
-          ⚡ <b>Nhiệt độ:</b>
-          Ghi nhận cảnh báo nhẹ
-          (28-30°C)
-          <b>${tempWarn} lần</b>.
-          Cần theo dõi thêm.
-          </p>`;
-
-      }
-
-      else {
-
-        evalHTML +=
-          `<p class="text-green-400">
-          ✅ <b>Nhiệt độ:</b>
-          Duy trì ổn định trong vùng an toàn
-          (TB: ${tempAvg}°C).
-          </p>`;
-
-      }
-
-
       if (gasDanger > 0) {
-
-        evalHTML +=
-          `<p class="text-red-400">
-          🚨 <b>Khí Gas:</b>
-          Phát hiện rò rỉ nghiêm trọng
-          (&ge;2000 PPM)
-          <b>${gasDanger} lần</b>
-          (Max: ${gasMax} PPM).
-          Hệ thống đã tự động cảnh báo.
-          </p>`;
-
+        evalHTML += `<p class="text-red-400">🚨 <b>Khí Gas:</b> Phát hiện rò rỉ nghiêm trọng (&ge;2000 PPM) <b>${gasDanger} lần</b> (Max: ${gasMax} PPM). Hệ thống đã tự động cảnh báo.</p>`;
+      } else if (gasWarn > 0) {
+        evalHTML += `<p class="text-yellow-400">⚠️ <b>Khí Gas:</b> Có dấu hiệu tăng nồng độ (1500-2000 PPM) <b>${gasWarn} lần</b>.</p>`;
+      } else {
+        evalHTML += `<p class="text-green-400">✅ <b>Khí Gas:</b> Nồng độ ở mức nền bình thường (TB: ${gasAvg} PPM).</p>`;
       }
-
-      else if (gasWarn > 0) {
-
-        evalHTML +=
-          `<p class="text-yellow-400">
-          ⚠️ <b>Khí Gas:</b>
-          Có dấu hiệu tăng nồng độ
-          (1500-2000 PPM)
-          <b>${gasWarn} lần</b>.
-          </p>`;
-
-      }
-
-      else {
-
-        evalHTML +=
-          `<p class="text-green-400">
-          ✅ <b>Khí Gas:</b>
-          Nồng độ ở mức nền bình thường
-          (TB: ${gasAvg} PPM).
-          </p>`;
-
-      }
-
-
-      document.getElementById(
-        'evaluation-text'
-      ).innerHTML =
-        evalHTML;
-
+      document.getElementById('evaluation-text').innerHTML = evalHTML;
     }
 
-
-    // ==============================
-    // ONLINE / OFFLINE
-    // ==============================
-
+    // ESP32 ONLINE / OFFLINE theo dữ liệu mới nhất từ Render
     setInterval(() => {
-
-      const espStatusEl =
-        document.getElementById(
-          'esp-status'
-        );
-
-
-      if (
-        Date.now() -
-        lastMessageTime >
-        5000
-      ) {
-
-        espStatusEl.innerText =
-          "ESP32: Offline";
-
-
-        espStatusEl.className =
-          "px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30";
-
+      const espStatusEl = document.getElementById('esp-status');
+      if (lastMessageTime === 0 || Date.now() - lastMessageTime > 7000) {
+        espStatusEl.innerText = "ESP32: Offline";
+        espStatusEl.className = "px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30";
+        setBackendStatus(false);
       }
-
     }, 1000);
 
-
-    // ==============================
-    // MQTT
-    // ==============================
-
-    const client =
-      mqtt.connect(
-        MQTT_BROKER
-      );
-
-
-    client.on(
-      'connect',
-      () => {
-
-        const statusEl =
-          document.getElementById(
-            'mqtt-status'
-          );
-
-
-        statusEl.innerText =
-          "MQTT: Connected";
-
-
-        statusEl.className =
-          "px-3 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-300 border border-green-500/30";
-
-
-        client.subscribe(
-          MQTT_TOPIC
-        );
-
-      }
-    );
-
-
-    client.on(
-      'error',
-      () => {
-
-        const statusEl =
-          document.getElementById(
-            'mqtt-status'
-          );
-
-
-        statusEl.innerText =
-          "MQTT: Lỗi kết nối";
-
-
-        statusEl.className =
-          "px-3 py-1 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30";
-
-      }
-    );
-
-
-    client.on(
-      'message',
-      (topic, message) => {
-
-        try {
-
-          lastMessageTime =
-            Date.now();
-
-
-          const espStatusEl =
-            document.getElementById(
-              'esp-status'
-            );
-
-
-          espStatusEl.innerText =
-            "ESP32: Online";
-
-
-          espStatusEl.className =
-            "px-3 py-1 text-xs font-semibold rounded-full bg-green-500/20 text-green-300 border border-green-500/30";
-
-
-          const payload =
-            JSON.parse(
-              message.toString()
-            );
-
-
-          const now =
-            new Date()
-              .toLocaleTimeString();
-
-
-          const temp =
-            payload.temp;
-
-
-          const gas =
-            payload.gas;
-
-
-          const tempAlert =
-            payload.temp_alert;
-
-
-          const gasAlert =
-            payload.gas_alert;
-
-
-          if (
-            tempAlert ||
-            gasAlert
-          ) {
-
-            playBeep();
-
-          }
-
-
-          document.getElementById(
-            'val-temp'
-          ).innerText =
-            `${temp.toFixed(1)} °C`;
-
-
-          document.getElementById(
-            'val-gas'
-          ).innerText =
-            `${gas} PPM`;
-
-
-          // NHIỆT ĐỘ
-          const badgeTemp =
-            document.getElementById(
-              'alert-temp-badge'
-            );
-
-
-          if (temp >= 30.0) {
-
-            badgeTemp.innerText =
-              "Trạng thái: NGUY HIỂM (>=30°C)";
-
-
-            badgeTemp.className =
-              "text-xs font-bold mt-2 text-red-400 animate-pulse";
-
-          }
-
-          else if (temp >= 28.0) {
-
-            badgeTemp.innerText =
-              "Trạng thái: CẢNH BÁO NHẸ (>=28°C)";
-
-
-            badgeTemp.className =
-              "text-xs font-bold mt-2 text-yellow-400";
-
-          }
-
-          else {
-
-            badgeTemp.innerText =
-              "Trạng thái: BÌNH THƯỜNG";
-
-
-            badgeTemp.className =
-              "text-xs font-semibold mt-2 text-gray-400";
-
-          }
-
-
-          // GAS
-          const badgeGas =
-            document.getElementById(
-              'alert-gas-badge'
-            );
-
-
-          if (gas >= 2000) {
-
-            badgeGas.innerText =
-              "Trạng thái: NGUY HIỂM RÒ RỈ!";
-
-
-            badgeGas.className =
-              "text-xs font-bold mt-2 text-red-400 animate-pulse";
-
-          }
-
-          else if (gas >= 1500) {
-
-            badgeGas.innerText =
-              "Trạng thái: CẢNH BÁO NHẸ";
-
-
-            badgeGas.className =
-              "text-xs font-bold mt-2 text-yellow-400";
-
-          }
-
-          else {
-
-            badgeGas.innerText =
-              "Trạng thái: BÌNH THƯỜNG";
-
-
-            badgeGas.className =
-              "text-xs font-semibold mt-2 text-gray-400";
-
-          }
-
-
-          // BANNER
-          const banner =
-            document.getElementById(
-              'banner-status'
-            );
-
-
-          if (
-            tempAlert &&
-            gasAlert
-          ) {
-
-            banner.innerText =
-              "🚨 DANGER ALARM: NGUY HIỂM TOÀN HỆ THỐNG!";
-
-
-            banner.className =
-              "p-4 rounded-xl text-center font-bold bg-red-900/80 text-red-200 border border-red-500 animate-bounce";
-
-          }
-
-          else if (gasAlert) {
-
-            banner.innerText =
-              "🔥 GAS LEAK: PHÁT HIỆN NỒNG ĐỘ GAS CAO!";
-
-
-            banner.className =
-              "p-4 rounded-xl text-center font-bold bg-orange-900/80 text-orange-200 border border-orange-500";
-
-          }
-
-          else if (tempAlert) {
-
-            banner.innerText =
-              "🌡️ OVERHEAT: NHIỆT ĐỘ VƯỢT NGƯỠNG AN TOÀN!";
-
-
-            banner.className =
-              "p-4 rounded-xl text-center font-bold bg-amber-900/80 text-amber-200 border border-amber-500";
-
-          }
-
-          else {
-
-            banner.innerText =
-              "✅ STATUS: MÔI TRƯỜNG BÌNH THƯỜNG (NORMAL)";
-
-
-            banner.className =
-              "p-4 rounded-xl text-center font-bold bg-green-900/40 text-green-300 border border-green-700";
-
-          }
-
-
-          // LED TEMP
-          document.getElementById(
-            'led-temp-green'
-          ).className =
-            `led-circle ${
-              !tempAlert
-                ? 'led-green'
-                : 'led-off'
-            }`;
-
-
-          document.getElementById(
-            'led-temp-red'
-          ).className =
-            `led-circle ${
-              tempAlert
-                ? 'led-red'
-                : 'led-off'
-            }`;
-
-
-          // LED GAS
-          document.getElementById(
-            'led-gas-green'
-          ).className =
-            `led-circle ${
-              !gasAlert
-                ? 'led-green'
-                : 'led-off'
-            }`;
-
-
-          document.getElementById(
-            'led-gas-red'
-          ).className =
-            `led-circle ${
-              gasAlert
-                ? 'led-red'
-                : 'led-off'
-            }`;
-
-
-          saveToStorage({
-
-            time: now,
-
-            temp: temp,
-
-            gas: gas
-
-          });
-
-
-          loadDatabaseData();
-
-
-        }
-
-        catch (e) {
-
-          console.error(
-            "Lỗi parse JSON:",
-            e
-          );
-
-        }
-
-      }
-    );
-
+    // Render kiểm tra dữ liệu mỗi 5 giây.
+    // Render đã nhận MQTT từ HiveMQ và lưu dữ liệu vào Supabase.
+    loadDatabaseData();
+    setInterval(loadDatabaseData, 5000);
 
     updateCharts();
-
     calculateStats();
 
-
-    // ==============================
     // CẤU HÌNH WIFI SMART4
-    // ==============================
-
     function openSmart4WiFi() {
-
-      window.location.href =
-        "http://192.168.4.1";
-
+      window.location.href = "http://192.168.4.1";
     }
-
   </script>
-
 </body>
 </html>
