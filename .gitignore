@@ -1,1 +1,3 @@
-.vercel
+node_modules/
+sensor_data.db
+iot.db.vercel

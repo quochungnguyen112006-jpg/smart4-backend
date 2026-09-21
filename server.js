@@ -1,853 +1,709 @@
-const mqtt = require("mqtt");
 const http = require("http");
-const url = require("url");
-const axios = require("axios");
+const mqtt = require("mqtt");
 const { createClient } = require("@supabase/supabase-js");
+const axios = require("axios");
 
 // ======================================================
-// HIVEMQ CLOUD
+// CONFIG
 // ======================================================
 
-const MQTT_BROKER =
-    "mqtts://c8aa35bd14934f5ebd190c284377a7fe.s1.eu.hivemq.cloud:8883";
+const PORT = process.env.PORT || 3000;
 
-const MQTT_USERNAME = process.env.MQTT_USERNAME;
-const MQTT_PASSWORD = process.env.MQTT_PASSWORD;
+const MQTT_HOST =
+  "c8aa35bd14934f5ebd190c284377a7fe.s1.eu.hivemq.cloud";
+
+const MQTT_PORT = 8883;
+
+const MQTT_USERNAME =
+  process.env.MQTT_USERNAME;
+
+const MQTT_PASSWORD =
+  process.env.MQTT_PASSWORD;
 
 const MQTT_TOPIC = "lab/sensor";
 
-// ======================================================
-// ONESIGNAL
-// ======================================================
+const SUPABASE_URL =
+  process.env.SUPABASE_URL;
 
-const ONESIGNAL_APP_ID =
-    "4e288a67-5fb2-4249-aa99-be41582c25ef";
+const SUPABASE_SECRET_KEY =
+  process.env.SUPABASE_SECRET_KEY;
 
 const ONESIGNAL_API_KEY =
-    process.env.ONESIGNAL_API_KEY;
+  process.env.ONESIGNAL_API_KEY;
 
-// Subscription ID của iPhone
-const ONESIGNAL_SUBSCRIPTION_ID =
-    "e96ea331-1b56-479f-a296-72b733a4f6e2";
+const ONESIGNAL_APP_ID =
+  "4e288a67-5fb2-4249-aa99-be41582c25ef";
 
 // ======================================================
-// SUPABASE CLOUD
+// SUPABASE
 // ======================================================
-
-const SUPABASE_URL =
-    "https://eplpckbktkerxbyszvjb.supabase.co";
-
-const SUPABASE_KEY =
-    process.env.SUPABASE_SECRET_KEY;
 
 const supabase = createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
+  SUPABASE_URL,
+  SUPABASE_SECRET_KEY
 );
-
-// ======================================================
-// SERVER
-// ======================================================
-
-const SERVER_PORT = 3000;
-
-// ======================================================
-// CHECK ENVIRONMENT VARIABLES
-// ======================================================
-
-console.log("--------------------------------");
-console.log("🔧 Smart4 Backend Cloud");
-console.log("--------------------------------");
-
-console.log(
-    "🔑 MQTT username:",
-    MQTT_USERNAME ? "OK" : "THIẾU"
-);
-
-console.log(
-    "🔑 MQTT password:",
-    MQTT_PASSWORD ? "OK" : "THIẾU"
-);
-
-console.log(
-    "🔑 OneSignal API:",
-    ONESIGNAL_API_KEY ? "OK" : "THIẾU"
-);
-
-console.log(
-    "🔑 Supabase secret:",
-    SUPABASE_KEY?.startsWith("sb_secret_")
-        ? "OK"
-        : "THIẾU / KHÔNG ĐÚNG"
-);
-
-console.log(
-    "📱 OneSignal Subscription:",
-    ONESIGNAL_SUBSCRIPTION_ID ? "OK" : "THIẾU"
-);
-
-if (!ONESIGNAL_API_KEY) {
-    console.log(
-        "⚠️ Chưa cấu hình ONESIGNAL_API_KEY"
-    );
-} else {
-    console.log(
-        "✅ OneSignal API Key đã được nạp"
-    );
-}
-
-// ======================================================
-// GỬI PUSH NOTIFICATION
-// ======================================================
-
-async function sendNotification(
-    temp,
-    gas,
-    tempAlert,
-    gasAlert
-) {
-
-    if (!ONESIGNAL_API_KEY) {
-        console.log(
-            "⚠️ Không gửi notification: thiếu ONESIGNAL_API_KEY"
-        );
-        return;
-    }
-
-    let title = "🚨 Smart4 Cảnh báo";
-    let message = "";
-
-    if (tempAlert && gasAlert) {
-
-        message =
-            `⚠️ Nhiệt độ ${temp}°C và Gas ${gas} đang ở mức cảnh báo!`;
-
-    } else if (tempAlert) {
-
-        message =
-            `🌡️ Nhiệt độ ${temp}°C đang vượt ngưỡng!`;
-
-    } else if (gasAlert) {
-
-        message =
-            `🔥 Gas ${gas} đang vượt ngưỡng!`;
-
-    } else {
-
-        return;
-    }
-
-    console.log("📱 Đang gửi OneSignal...");
-    console.log("📱 App ID:", ONESIGNAL_APP_ID);
-    console.log(
-        "📱 Subscription ID:",
-        ONESIGNAL_SUBSCRIPTION_ID
-    );
-
-    try {
-
-        const response = await axios.post(
-
-            "https://api.onesignal.com/notifications",
-
-            {
-                app_id: ONESIGNAL_APP_ID,
-
-                target_channel: "push",
-
-                include_subscription_ids: [
-                    ONESIGNAL_SUBSCRIPTION_ID
-                ],
-
-                headings: {
-                    en: title
-                },
-
-                contents: {
-                    en: message
-                }
-            },
-
-            {
-                headers: {
-                    Authorization:
-                        `Key ${ONESIGNAL_API_KEY}`,
-
-                    "Content-Type":
-                        "application/json"
-                },
-
-                timeout: 10000
-            }
-        );
-
-        console.log(
-            "================================"
-        );
-
-        console.log(
-            "📱 OneSignal gửi thành công!"
-        );
-
-        console.log(
-            "📱 Notification ID:",
-            response.data.id
-        );
-
-        console.log(
-            "📱 Response:",
-            response.data
-        );
-
-        console.log(
-            "================================"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "================================"
-        );
-
-        console.error(
-            "❌ ONESIGNAL GỬI THẤT BẠI"
-        );
-
-        console.error(
-            "❌ HTTP:",
-            error.response?.status
-        );
-
-        console.error(
-            "❌ DATA:",
-            error.response?.data
-        );
-
-        console.error(
-            "❌ MESSAGE:",
-            error.message
-        );
-
-        console.error(
-            "================================"
-        );
-    }
-}
-
-// ======================================================
-// LƯU SUPABASE
-// ======================================================
-
-async function saveToSupabase(
-    temp,
-    gas,
-    tempAlert,
-    gasAlert
-) {
-
-    try {
-
-        const {
-            data,
-            error
-        } = await supabase
-            .from("sensor_data")
-            .insert([
-                {
-                    temp: temp,
-                    gas: gas,
-                    temp_alert: tempAlert,
-                    gas_alert: gasAlert
-                }
-            ])
-            .select();
-
-        if (error) {
-
-            console.error(
-                "❌ Supabase lỗi:",
-                error.message
-            );
-
-            return;
-        }
-
-        console.log(
-            "☁️ Đã lưu Supabase - ID:",
-            data[0].id
-        );
-
-    } catch (error) {
-
-        console.error(
-            "❌ Supabase exception:",
-            error.message
-        );
-    }
-}
 
 // ======================================================
 // MQTT
 // ======================================================
 
-console.log("--------------------------------");
-console.log("🔄 Connecting to HiveMQ Cloud...");
-console.log("📡 Broker:", MQTT_BROKER);
-console.log("📨 Topic:", MQTT_TOPIC);
-console.log("--------------------------------");
+let mqttConnected = false;
 
 const mqttClient = mqtt.connect(
-    MQTT_BROKER,
-    {
-        username: MQTT_USERNAME,
-        password: MQTT_PASSWORD,
-
-        clientId:
-            "server_dashboard_" +
-            Math.random()
-                .toString(16)
-                .substring(2, 10),
-
-        clean: true,
-
-        connectTimeout: 10000,
-
-        reconnectPeriod: 3000
-    }
-);
-
-// ======================================================
-// MQTT CONNECT
-// ======================================================
-
-mqttClient.on(
-    "connect",
-    () => {
-
-        console.log(
-            "✅ MQTT HiveMQ Connected!"
-        );
-
-        mqttClient.subscribe(
-            MQTT_TOPIC,
-            (err) => {
-
-                if (err) {
-
-                    console.error(
-                        "❌ Subscribe failed:",
-                        err.message
-                    );
-
-                } else {
-
-                    console.log(
-                        "✅ Subscribed:",
-                        MQTT_TOPIC
-                    );
-                }
-            }
-        );
-    }
-);
-
-// ======================================================
-// MQTT ERROR
-// ======================================================
-
-mqttClient.on(
-    "error",
-    (err) => {
-
-        console.error(
-            "❌ MQTT Error:",
-            err.message
-        );
-    }
-);
-
-// ======================================================
-// MQTT RECONNECT
-// ======================================================
-
-mqttClient.on(
-    "reconnect",
-    () => {
-
-        console.log(
-            "🔄 Đang reconnect HiveMQ..."
-        );
-    }
-);
-
-// ======================================================
-// NHẬN DỮ LIỆU MQTT
-// ======================================================
-
-mqttClient.on(
-    "message",
-    async (topic, message) => {
-
-        console.log("--------------------------------");
-
-        console.log(
-            "📩 Topic:",
-            topic
-        );
-
-        try {
-
-            const payload =
-                JSON.parse(
-                    message.toString()
-                );
-
-            const temp =
-                Number(payload.temp);
-
-            const gas =
-                Number(payload.gas);
-
-            const tempAlert =
-                payload.temp_alert === true ||
-                payload.temp_alert === 1 ||
-                payload.temp_alert === "true"
-                    ? 1
-                    : 0;
-
-            const gasAlert =
-                payload.gas_alert === true ||
-                payload.gas_alert === 1 ||
-                payload.gas_alert === "true"
-                    ? 1
-                    : 0;
-
-            // ==================================================
-            // KIỂM TRA DỮ LIỆU
-            // ==================================================
-
-            if (
-                !Number.isFinite(temp) ||
-                !Number.isFinite(gas)
-            ) {
-
-                console.error(
-                    "❌ temp/gas không hợp lệ"
-                );
-
-                return;
-            }
-
-            // ==================================================
-            // LOG
-            // ==================================================
-
-            console.log(
-                "🌡️ Nhiệt độ:",
-                temp
-            );
-
-            console.log(
-                "🔥 Gas:",
-                gas
-            );
-
-            console.log(
-                "⚠️ Temp alert:",
-                tempAlert === 1
-            );
-
-            console.log(
-                "⚠️ Gas alert:",
-                gasAlert === 1
-            );
-
-            // ==================================================
-            // LƯU SUPABASE
-            // ==================================================
-
-            await saveToSupabase(
-                temp,
-                gas,
-                tempAlert,
-                gasAlert
-            );
-
-            // ==================================================
-            // GỬI NOTIFICATION
-            // ==================================================
-
-            if (
-                tempAlert === 1 ||
-                gasAlert === 1
-            ) {
-
-                await sendNotification(
-                    temp,
-                    gas,
-                    tempAlert === 1,
-                    gasAlert === 1
-                );
-
-            } else {
-
-                console.log(
-                    "ℹ️ Không có cảnh báo → không gửi notification"
-                );
-            }
-
-        } catch (err) {
-
-            console.error(
-                "❌ JSON không hợp lệ:",
-                err.message
-            );
-
-            console.log(
-                "Raw:",
-                message.toString()
-            );
-        }
-    }
+  `mqtts://${MQTT_HOST}:${MQTT_PORT}`,
+  {
+    username: MQTT_USERNAME,
+    password: MQTT_PASSWORD,
+    reconnectPeriod: 5000,
+    connectTimeout: 30000,
+    clientId:
+      "smart4-render-" +
+      Math.random().toString(16).substring(2)
+  }
 );
 
 // ======================================================
 // HTTP SERVER
 // ======================================================
 
-const server =
-    http.createServer(
-        async (req, res) => {
+const server = http.createServer(
+  async (req, res) => {
 
-            // ==================================================
-            // CORS
-            // ==================================================
+    // CORS
 
-            res.setHeader(
-                "Access-Control-Allow-Origin",
-                "*"
-            );
-
-            res.setHeader(
-                "Access-Control-Allow-Methods",
-                "GET, POST, DELETE, OPTIONS"
-            );
-
-            res.setHeader(
-                "Access-Control-Allow-Headers",
-                "Content-Type"
-            );
-
-            // ==================================================
-            // OPTIONS
-            // ==================================================
-
-            if (req.method === "OPTIONS") {
-
-                res.writeHead(204);
-
-                res.end();
-
-                return;
-            }
-
-            const parsedUrl =
-                url.parse(
-                    req.url,
-                    true
-                );
-
-            // ==================================================
-            // ROOT
-            // ==================================================
-
-            if (
-                req.method === "GET" &&
-                parsedUrl.pathname === "/"
-            ) {
-
-                res.writeHead(
-                    200,
-                    {
-                        "Content-Type":
-                            "application/json; charset=utf-8"
-                    }
-                );
-
-                res.end(
-                    JSON.stringify({
-                        success: true,
-
-                        message:
-                            "Smart4 Server đang chạy trên Render",
-
-                        topic:
-                            MQTT_TOPIC
-                    })
-                );
-
-                return;
-            }
-
-            // ==================================================
-            // GET DATA
-            // ==================================================
-
-            if (
-                req.method === "GET" &&
-                parsedUrl.pathname === "/data"
-            ) {
-
-                try {
-
-                    const {
-                        data,
-                        error
-                    } = await supabase
-                        .from("sensor_data")
-                        .select(
-                            "id,created_at,temp,gas,temp_alert,gas_alert"
-                        )
-                        .order(
-                            "id",
-                            {
-                                ascending: true
-                            }
-                        );
-
-                    if (error) {
-
-                        console.error(
-                            "❌ Supabase GET lỗi:",
-                            error.message
-                        );
-
-                        res.writeHead(
-                            500,
-                            {
-                                "Content-Type":
-                                    "application/json; charset=utf-8"
-                            }
-                        );
-
-                        res.end(
-                            JSON.stringify({
-                                success: false,
-                                error: error.message
-                            })
-                        );
-
-                        return;
-                    }
-
-                    const rows =
-                        data.map(
-                            (item) => ({
-                                id: item.id,
-
-                                timestamp:
-                                    item.created_at,
-
-                                temp: item.temp,
-
-                                gas: item.gas,
-
-                                temp_alert:
-                                    item.temp_alert
-                                        ? 1
-                                        : 0,
-
-                                gas_alert:
-                                    item.gas_alert
-                                        ? 1
-                                        : 0
-                            })
-                        );
-
-                    res.writeHead(
-                        200,
-                        {
-                            "Content-Type":
-                                "application/json; charset=utf-8"
-                        }
-                    );
-
-                    res.end(
-                        JSON.stringify(rows)
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "❌ /data lỗi:",
-                        error.message
-                    );
-
-                    res.writeHead(
-                        500,
-                        {
-                            "Content-Type":
-                                "application/json; charset=utf-8"
-                        }
-                    );
-
-                    res.end(
-                        JSON.stringify({
-                            success: false,
-                            error: error.message
-                        })
-                    );
-                }
-
-                return;
-            }
-
-            // ==================================================
-            // DELETE DATA
-            // ==================================================
-
-            if (
-                req.method === "DELETE" &&
-                parsedUrl.pathname === "/reset"
-            ) {
-
-                try {
-
-                    const {
-                        error
-                    } = await supabase
-                        .from("sensor_data")
-                        .delete()
-                        .not(
-                            "id",
-                            "is",
-                            null
-                        );
-
-                    if (error) {
-
-                        console.error(
-                            "❌ Supabase DELETE lỗi:",
-                            error.message
-                        );
-
-                        res.writeHead(
-                            500,
-                            {
-                                "Content-Type":
-                                    "application/json; charset=utf-8"
-                            }
-                        );
-
-                        res.end(
-                            JSON.stringify({
-                                success: false,
-                                error: error.message
-                            })
-                        );
-
-                        return;
-                    }
-
-                    console.log(
-                        "🗑️ Đã xóa dữ liệu Supabase"
-                    );
-
-                    res.writeHead(
-                        200,
-                        {
-                            "Content-Type":
-                                "application/json; charset=utf-8"
-                        }
-                    );
-
-                    res.end(
-                        JSON.stringify({
-                            success: true,
-
-                            message:
-                                "Đã xóa dữ liệu Supabase"
-                        })
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "❌ /reset lỗi:",
-                        error.message
-                    );
-
-                    res.writeHead(
-                        500,
-                        {
-                            "Content-Type":
-                                "application/json; charset=utf-8"
-                        }
-                    );
-
-                    res.end(
-                        JSON.stringify({
-                            success: false,
-                            error: error.message
-                        })
-                    );
-                }
-
-                return;
-            }
-
-            // ==================================================
-            // 404
-            // ==================================================
-
-            res.writeHead(
-                404,
-                {
-                    "Content-Type":
-                        "application/json; charset=utf-8"
-                }
-            );
-
-            res.end(
-                JSON.stringify({
-                    success: false,
-
-                    message:
-                        "API không tồn tại"
-                })
-            );
-        }
+    res.setHeader(
+      "Access-Control-Allow-Origin",
+      "*"
     );
 
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET,DELETE,OPTIONS"
+    );
+
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type"
+    );
+
+    if (req.method === "OPTIONS") {
+
+      res.writeHead(204);
+
+      res.end();
+
+      return;
+
+    }
+
+    // ==================================================
+    // /
+    // ==================================================
+
+    if (
+      req.method === "GET" &&
+      req.url === "/"
+    ) {
+
+      res.writeHead(200, {
+
+        "Content-Type":
+          "text/html; charset=utf-8"
+
+      });
+
+      res.end(`
+
+        <h1>Smart4 Cloud Backend</h1>
+
+        <p>Server đang hoạt động</p>
+
+        <p>MQTT: ${
+          mqttConnected
+            ? "connected"
+            : "disconnected"
+        }</p>
+
+      `);
+
+      return;
+
+    }
+
+    // ==================================================
+    // /health
+    // ==================================================
+
+    if (
+      req.method === "GET" &&
+      req.url === "/health"
+    ) {
+
+      res.writeHead(200, {
+
+        "Content-Type":
+          "application/json; charset=utf-8"
+
+      });
+
+      res.end(
+
+        JSON.stringify({
+
+          status: "ok",
+
+          service: "Smart4 Cloud Backend",
+
+          mqtt: mqttConnected
+            ? "connected"
+            : "disconnected"
+
+        })
+
+      );
+
+      return;
+
+    }
+
+    // ==================================================
+    // /data
+    // Dashboard dùng API này
+    // ==================================================
+
+    if (
+      req.method === "GET" &&
+      req.url === "/data"
+    ) {
+
+      try {
+
+        const { data, error } =
+          await supabase
+
+            .from("sensor_data")
+
+            .select("*")
+
+            .order("created_at", {
+              ascending: false
+            });
+
+        if (error) {
+
+          console.error(
+            "❌ Supabase /data:",
+            error
+          );
+
+          res.writeHead(500, {
+
+            "Content-Type":
+              "application/json"
+
+          });
+
+          res.end(
+
+            JSON.stringify({
+
+              error: error.message
+
+            })
+
+          );
+
+          return;
+
+        }
+
+        res.writeHead(200, {
+
+          "Content-Type":
+            "application/json"
+
+        });
+
+        res.end(
+
+          JSON.stringify(data || [])
+
+        );
+
+      } catch (error) {
+
+        console.error(
+          "❌ /data error:",
+          error
+        );
+
+        res.writeHead(500, {
+
+          "Content-Type":
+            "application/json"
+
+        });
+
+        res.end(
+
+          JSON.stringify({
+
+            error: error.message
+
+          })
+
+        );
+
+      }
+
+      return;
+
+    }
+
+    // ==================================================
+    // /reset
+    // Dashboard dùng để xóa dữ liệu
+    // ==================================================
+
+    if (
+      req.method === "DELETE" &&
+      req.url === "/reset"
+    ) {
+
+      try {
+
+        const { error } =
+          await supabase
+
+            .from("sensor_data")
+
+            .delete()
+
+            .gt("id", 0);
+
+        if (error) {
+
+          console.error(
+            "❌ Supabase /reset:",
+            error
+          );
+
+          res.writeHead(500, {
+
+            "Content-Type":
+              "application/json"
+
+          });
+
+          res.end(
+
+            JSON.stringify({
+
+              error: error.message
+
+            })
+
+          );
+
+          return;
+
+        }
+
+        console.log(
+          "🗑️ Đã xóa dữ liệu sensor_data"
+        );
+
+        res.writeHead(200, {
+
+          "Content-Type":
+            "application/json"
+
+        });
+
+        res.end(
+
+          JSON.stringify({
+
+            success: true,
+
+            message: "Đã xóa dữ liệu"
+
+          })
+
+        );
+
+      } catch (error) {
+
+        console.error(
+          "❌ /reset error:",
+          error
+        );
+
+        res.writeHead(500, {
+
+          "Content-Type":
+            "application/json"
+
+        });
+
+        res.end(
+
+          JSON.stringify({
+
+            error: error.message
+
+          })
+
+        );
+
+      }
+
+      return;
+
+    }
+
+    // ==================================================
+    // 404
+    // ==================================================
+
+    res.writeHead(404, {
+
+      "Content-Type":
+        "application/json"
+
+    });
+
+    res.end(
+
+      JSON.stringify({
+
+        error: "Not found"
+
+      })
+
+    );
+
+  }
+
+);
+
 // ======================================================
-// START SERVER
+// MQTT CONNECT
 // ======================================================
 
-const PORT =
-    process.env.PORT ||
-    SERVER_PORT;
+mqttClient.on("connect", () => {
+
+  mqttConnected = true;
+
+  console.log(
+    "✅ HiveMQ connected"
+  );
+
+  mqttClient.subscribe(
+    MQTT_TOPIC,
+    (error) => {
+
+      if (error) {
+
+        console.error(
+          "❌ Subscribe error:",
+          error
+        );
+
+        return;
+
+      }
+
+      console.log(
+        "✅ Subscribed:",
+        MQTT_TOPIC
+      );
+
+    }
+  );
+
+});
+
+// ======================================================
+// MQTT MESSAGE
+// ======================================================
+
+mqttClient.on(
+  "message",
+  async (topic, message) => {
+
+    console.log("");
+
+    console.log(
+      "📩 Topic:",
+      topic
+    );
+
+    console.log(
+      "📩 Message:",
+      message.toString()
+    );
+
+    let sensor;
+
+    try {
+
+      sensor = JSON.parse(
+        message.toString()
+      );
+
+    } catch (error) {
+
+      console.error(
+        "❌ JSON lỗi:",
+        error.message
+      );
+
+      return;
+
+    }
+
+    const temp = Number(
+      sensor.temp
+    );
+
+    const gas = Number(
+      sensor.gas
+    );
+
+    const temp_alert =
+      Boolean(sensor.temp_alert);
+
+    const gas_alert =
+      Boolean(sensor.gas_alert);
+
+    if (
+      !Number.isFinite(temp) ||
+      !Number.isFinite(gas)
+    ) {
+
+      console.error(
+        "❌ temp/gas không hợp lệ"
+      );
+
+      return;
+
+    }
+
+    console.log(
+      "🌡️ Temperature:",
+      temp
+    );
+
+    console.log(
+      "🔥 Gas:",
+      gas
+    );
+
+    console.log(
+      "Temp alert:",
+      temp_alert
+    );
+
+    console.log(
+      "Gas alert:",
+      gas_alert
+    );
+
+    // ==================================================
+    // SAVE SUPABASE
+    // ==================================================
+
+    const { error } =
+      await supabase
+
+        .from("sensor_data")
+
+        .insert([
+
+          {
+
+            temp: temp,
+
+            gas: gas,
+
+            temp_alert:
+              temp_alert,
+
+            gas_alert:
+              gas_alert
+
+          }
+
+        ]);
+
+    if (error) {
+
+      console.error(
+        "❌ Supabase insert error:",
+        error
+      );
+
+      return;
+
+    }
+
+    console.log(
+      "✅ Đã lưu vào Supabase"
+    );
+
+    // ==================================================
+    // ONESIGNAL
+    // ==================================================
+
+    if (
+      (temp_alert || gas_alert) &&
+      ONESIGNAL_API_KEY
+    ) {
+
+      let messageText =
+        "Smart4 cảnh báo: ";
+
+      if (temp_alert) {
+
+        messageText +=
+          `Nhiệt độ cao ${temp}°C. `;
+
+      }
+
+      if (gas_alert) {
+
+        messageText +=
+          `Khí gas cao ${gas}.`;
+
+      }
+
+      try {
+
+        await axios.post(
+
+          "https://api.onesignal.com/notifications",
+
+          {
+
+            app_id:
+              ONESIGNAL_APP_ID,
+
+            included_segments:
+              ["All"],
+
+            headings: {
+
+              en:
+                "Smart4 cảnh báo"
+
+            },
+
+            contents: {
+
+              en:
+                messageText
+
+            }
+
+          },
+
+          {
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+              "Authorization":
+                `Key ${ONESIGNAL_API_KEY}`
+
+            }
+
+          }
+
+        );
+
+        console.log(
+          "🔔 OneSignal đã gửi cảnh báo"
+        );
+
+      } catch (error) {
+
+        console.error(
+          "❌ OneSignal error:",
+          error.response?.data ||
+          error.message
+        );
+
+      }
+
+    }
+
+  }
+
+);
+
+// ======================================================
+// MQTT ERROR / RECONNECT
+// ======================================================
+
+mqttClient.on(
+  "error",
+  (error) => {
+
+    mqttConnected = false;
+
+    console.error(
+      "❌ MQTT error:",
+      error.message
+    );
+
+  }
+);
+
+mqttClient.on(
+  "reconnect",
+  () => {
+
+    mqttConnected = false;
+
+    console.log(
+      "🔄 MQTT reconnecting..."
+    );
+
+  }
+);
+
+mqttClient.on(
+  "close",
+  () => {
+
+    mqttConnected = false;
+
+    console.log(
+      "⚠️ MQTT connection closed"
+    );
+
+  }
+);
+
+// ======================================================
+// START
+// ======================================================
 
 server.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
+  PORT,
+  "0.0.0.0",
+  () => {
 
-        console.log("--------------------------------");
+    console.log(
+      `🚀 Smart4 Server chạy port ${PORT}`
+    );
 
-        console.log(
-            `🌐 Server running on port ${PORT}`
-        );
+    console.log(
+      `📡 MQTT topic: ${MQTT_TOPIC}`
+    );
 
-        console.log(
-            "📡 MQTT Broker:",
-            MQTT_BROKER
-        );
-
-        console.log(
-            "📨 MQTT Topic:",
-            MQTT_TOPIC
-        );
-
-        console.log("--------------------------------");
-    }
+  }
 );
