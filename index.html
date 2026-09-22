@@ -1,16 +1,15 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Dashboard - Monitoring System</title>
+    <title>ESP32 Advanced Dashboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- ============================================== -->
-    <!-- ONESIGNAL PUSH NOTIFICATION & NOTIFY BUTTON -->
-    <!-- ============================================== -->
+    
+    <!-- =================ONETIGNAL NOTIFICATION================ -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -18,296 +17,268 @@
         await OneSignal.init({
           appId: "4e288a67-5fb2-4249-aa99-be41582c25ef",
           notifyButton: {
-            enable: true, // Kích hoạt hiển thị nút chuông thông báo góc màn hình
+            enable: true,
           },
         });
       });
     </script>
+
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .card-bg {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+        }
+        .led-circle {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px currentColor;
+        }
+    </style>
 </head>
+<body class="font-sans antialiased p-4 md:p-6">
 
-<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="max-w-7xl mx-auto space-y-6">
 
-<div class="container mx-auto p-4 max-w-6xl">
+        <!-- HEADER -->
+        <header class="card-bg p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold text-blue-400 tracking-wide">
+                    ESP32 ADVANCED DASHBOARD
+                </h1>
+                <p class="text-sm text-slate-400 mt-1">
+                    Hệ thống Giám sát, Phân tích & Cảnh báo Môi trường
+                </p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                <span id="mqtt-status" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-900/50 text-emerald-400 border border-emerald-700">
+                    MQTT: Đang kết nối...
+                </span>
+                <span id="esp-status" class="px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                    ESP32: Offline
+                </span>
+                <button onclick="exportCSV()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow">
+                    📥 Xuất CSV
+                </button>
+                <button onclick="resetDatabase()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition flex items-center gap-1.5 shadow">
+                    🗑️ Xóa Lịch Sử
+                </button>
+                <button onclick="openWifiConfig()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow">
+                    📶 Cấu hình WiFi
+                </button>
+            </div>
+        </header>
 
-    <!-- ============================================== -->
-    <!-- HEADER -->
-    <!-- ============================================== -->
-    <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow">
-        <h1 class="text-xl font-bold text-gray-800">
-            📊 Hệ thống Giám sát IoT ESP32
-        </h1>
+        <!-- SENSOR CARDS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Nhiệt độ -->
+            <div class="card-bg p-6 rounded-2xl shadow-xl relative overflow-hidden">
+                <p class="text-slate-400 text-sm font-medium">Nhiệt độ hiện tại</p>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <h2 id="val-temp" class="text-4xl md:text-5xl font-black text-amber-400">--</h2>
+                    <span class="text-2xl font-bold text-amber-400">°C</span>
+                </div>
+                <p id="badge-temp" class="text-xs font-semibold mt-3 text-slate-400">Trạng thái: Đang cập nhật...</p>
+                <div class="absolute right-6 top-6 text-4xl opacity-80">🌡️</div>
+            </div>
 
-        <div id="connection-status" class="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
-            ⏳ Đang kết nối server...
+            <!-- Khí Gas -->
+            <div class="card-bg p-6 rounded-2xl shadow-xl relative overflow-hidden">
+                <p class="text-slate-400 text-sm font-medium">Nồng độ Khí Gas</p>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <h2 id="val-gas" class="text-4xl md:text-5xl font-black text-cyan-400">--</h2>
+                    <span class="text-2xl font-bold text-cyan-400">PPM</span>
+                </div>
+                <p id="badge-gas" class="text-xs font-semibold mt-3 text-slate-400">Trạng thái: Đang cập nhật...</p>
+                <div class="absolute right-6 top-6 text-4xl opacity-80">💨</div>
+            </div>
         </div>
-    </header>
 
-    <!-- ============================================== -->
-    <!-- LOADING -->
-    <!-- ============================================== -->
-    <div id="loading-banner" class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm hidden">
-        ℹ️ Server Render đang khởi động, vui lòng chờ...
+        <!-- STATUS BANNER -->
+        <div id="status-banner" class="p-4 rounded-xl text-center font-bold text-sm bg-slate-800 border border-slate-700 text-slate-300 shadow">
+            STATUS: Đang đồng bộ dữ liệu hệ thống...
+        </div>
+
+        <!-- TRẠNG THÁI 4 LED HỆ THỐNG -->
+        <div class="card-bg p-6 rounded-2xl shadow-xl space-y-4">
+            <h3 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+                💡 TRẠNG THÁI 4 LED HỆ THỐNG
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- LED 1 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center gap-2">
+                    <div id="led-temp-green" class="led-circle bg-emerald-500 text-emerald-500"></div>
+                    <span class="text-sm font-semibold text-slate-300">LED Temp Xanh</span>
+                    <span class="text-xs text-slate-500">&lt; 30°C</span>
+                </div>
+                <!-- LED 2 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center gap-2">
+                    <div id="led-temp-red" class="led-circle bg-slate-700 text-slate-700"></div>
+                    <span class="text-sm font-semibold text-slate-300">LED Temp Đỏ</span>
+                    <span class="text-xs text-slate-500">≥ 30°C</span>
+                </div>
+                <!-- LED 3 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center gap-2">
+                    <div id="led-gas-green" class="led-circle bg-emerald-500 text-emerald-500"></div>
+                    <span class="text-sm font-semibold text-slate-300">LED Gas Xanh</span>
+                    <span class="text-xs text-slate-500">&lt; 2000</span>
+                </div>
+                <!-- LED 4 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center text-center gap-2">
+                    <div id="led-gas-red" class="led-circle bg-slate-700 text-slate-700"></div>
+                    <span class="text-sm font-semibold text-slate-300">LED Gas Đỏ</span>
+                    <span class="text-xs text-slate-500">≥ 2000</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHARTS SECTION -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Biểu đồ Nhiệt độ -->
+            <div class="card-bg p-6 rounded-2xl shadow-xl">
+                <h3 class="text-base font-semibold text-slate-300 mb-4">📈 BIỂU ĐỒ NHIỆT ĐỘ (°C)</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+            <!-- Biểu đồ Gas -->
+            <div class="card-bg p-6 rounded-2xl shadow-xl">
+                <h3 class="text-base font-semibold text-slate-300 mb-4">📈 BIỂU ĐỒ KHÍ GAS (PPM)</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="gasChart"></canvas>
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    <!-- ============================================== -->
-    <!-- SENSOR CARDS -->
-    <!-- ============================================== -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <script>
+        const API_URL = "https://smart4-backend.onrender.com/data";
+        let tempChart, gasChart;
 
-        <!-- ========================================== -->
-        <!-- TEMPERATURE -->
-        <!-- ========================================== -->
-        <div id="temp-card" class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-500">
-            <p class="text-gray-500 text-sm">
-                Nhiệt độ hiện tại
-            </p>
-
-            <h2 class="text-3xl font-bold text-gray-800 mt-1">
-                <span id="val-temp">--</span> °C
-            </h2>
-
-            <span id="badge-temp" class="inline-block mt-2 text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
-                Đang cập nhật...
-            </span>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- GAS -->
-        <!-- ========================================== -->
-        <div id="gas-card" class="bg-white p-5 rounded-xl shadow border-l-4 border-green-500">
-            <p class="text-gray-500 text-sm">
-                Nồng độ Khí Gas
-            </p>
-
-            <h2 class="text-3xl font-bold text-gray-800 mt-1">
-                <span id="val-gas">--</span> PPM
-            </h2>
-
-            <span id="badge-gas" class="inline-block mt-2 text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">
-                Đang cập nhật...
-            </span>
-        </div>
-
-    </div>
-
-    <!-- ============================================== -->
-    <!-- CHART -->
-    <!-- ============================================== -->
-    <div class="bg-white p-5 rounded-xl shadow mb-6">
-        <h3 class="text-lg font-semibold text-gray-700 mb-4">
-            📈 Biểu đồ thời gian thực
-        </h3>
-
-        <div class="relative h-72 w-full">
-            <canvas id="sensorChart"></canvas>
-        </div>
-    </div>
-
-</div>
-
-<script>
-    // ==================================================
-    // CẤU HÌNH
-    // ==================================================
-    const API_URL = "https://smart4-backend.onrender.com/data";
-    const TEMP_LIMIT = 30;
-    const GAS_LIMIT = 2000;
-    const OFFLINE_THRESHOLD_MS = 6000;
-
-    let chart;
-    let coldStartTimer;
-
-    // ==================================================
-    // KHỞI TẠO BIỂU ĐỒ
-    // ==================================================
-    function initChart() {
-        const ctx = document.getElementById("sensorChart").getContext("2d");
-
-        chart = new Chart(ctx, {
-            type: "line",
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        label: "Nhiệt độ (°C)",
-                        data: [],
-                        borderColor: "#3b82f6",
-                        tension: 0.3,
-                        yAxisID: "y"
-                    },
-                    {
-                        label: "Khí Gas (PPM)",
-                        data: [],
-                        borderColor: "#10b981",
-                        tension: 0.3,
-                        yAxisID: "y1"
-                    }
-                ]
-            },
-            options: {
+        function initCharts() {
+            const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        type: "linear",
-                        position: "left",
-                        title: {
-                            display: true,
-                            text: "°C"
-                        }
-                    },
-                    y1: {
-                        type: "linear",
-                        position: "right",
-                        grid: {
-                            drawOnChartArea: false
-                        },
-                        title: {
-                            display: true,
-                            text: "PPM"
-                        }
+                    x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                }
+            };
+
+            const ctxTemp = document.getElementById("tempChart").getContext("2d");
+            tempChart = new Chart(ctxTemp, {
+                type: "line",
+                data: { labels: [], datasets: [{ label: "Nhiệt độ (°C)", data: [], borderColor: "#f59e0b", tension: 0.3, fill: true, backgroundColor: "rgba(245, 158, 11, 0.1)" }] },
+                options: commonOptions
+            });
+
+            const ctxGas = document.getElementById("gasChart").getContext("2d");
+            gasChart = new Chart(ctxGas, {
+                type: "line",
+                data: { labels: [], datasets: [{ label: "Khí Gas (PPM)", data: [], borderColor: "#06b6d4", tension: 0.3, fill: true, backgroundColor: "rgba(6, 182, 212, 0.1)" }] },
+                options: commonOptions
+            });
+        }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) return;
+
+                const latest = data[data.length - 1];
+                document.getElementById("val-temp").innerText = latest.temp;
+                document.getElementById("val-gas").innerText = latest.gas;
+
+                // Xử lý cảnh báo và trạng thái LED
+                const isTempDanger = latest.temp >= 30 || latest.temp_alert === 1;
+                const isGasDanger = latest.gas >= 2000 || latest.gas_alert === 1;
+
+                document.getElementById("badge-temp").innerText = isTempDanger ? "Trạng thái: NGUY HIỂM (>=30°C)" : "Trạng thái: BÌNH THƯỜNG";
+                document.getElementById("badge-temp").className = `text-xs font-semibold mt-3 ${isTempDanger ? 'text-red-400' : 'text-emerald-400'}`;
+
+                document.getElementById("badge-gas").innerText = isGasDanger ? "Trạng thái: NGUY HIỂM RÒ RỈ!" : "Trạng thái: BÌNH THƯỜNG";
+                document.getElementById("badge-gas").className = `text-xs font-semibold mt-3 ${isGasDanger ? 'text-red-400' : 'text-emerald-400'}`;
+
+                // Cập nhật 4 LED
+                document.getElementById("led-temp-green").className = `led-circle ${!isTempDanger ? 'bg-emerald-500 text-emerald-500' : 'bg-slate-700 text-slate-700'}`;
+                document.getElementById("led-temp-red").className = `led-circle ${isTempDanger ? 'bg-red-500 text-red-500' : 'bg-slate-700 text-slate-700'}`;
+                document.getElementById("led-gas-green").className = `led-circle ${!isGasDanger ? 'bg-emerald-500 text-emerald-500' : 'bg-slate-700 text-slate-700'}`;
+                document.getElementById("led-gas-red").className = `led-circle ${isGasDanger ? 'bg-red-500 text-red-500' : 'bg-slate-700 text-slate-700'}`;
+
+                // Banner tổng
+                const banner = document.getElementById("status-banner");
+                if (isTempDanger || isGasDanger) {
+                    banner.className = "p-4 rounded-xl text-center font-bold text-sm bg-red-950/80 border border-red-700 text-red-300 shadow animate-pulse";
+                    banner.innerText = "⚠️ CẢNH BÁO: PHÁT HIỆN MÔI TRƯỜNG NGUY HIỂM!";
+                } else {
+                    banner.className = "p-4 rounded-xl text-center font-bold text-sm bg-emerald-950/80 border border-emerald-700 text-emerald-300 shadow";
+                    banner.innerText = "✅ STATUS: MÔI TRƯỜNG BÌNH THƯỜNG (NORMAL)";
+                }
+
+                // ESP32 Online / Offline check (giả định 10 giây)
+                const diff = Date.now() - new Date(latest.timestamp).getTime();
+                const espStatus = document.getElementById("esp-status");
+                if (diff < 15000) {
+                    espStatus.className = "px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-900/50 text-emerald-400 border border-emerald-700";
+                    espStatus.innerText = "ESP32: Online";
+                } else {
+                    espStatus.className = "px-3 py-1.5 rounded-full text-xs font-semibold bg-red-900/50 text-red-400 border border-red-700";
+                    espStatus.innerText = "ESP32: Offline";
+                }
+
+                // Cập nhật biểu đồ (20 mẫu gần nhất)
+                const sliceData = data.slice(-20);
+                const labels = sliceData.map(x => new Date(x.timestamp).toLocaleTimeString());
+
+                tempChart.data.labels = labels;
+                tempChart.data.datasets[0].data = sliceData.map(x => x.temp);
+                tempChart.update();
+
+                gasChart.data.labels = labels;
+                gasChart.data.datasets[0].data = sliceData.map(x => x.gas);
+                gasChart.update();
+
+            } catch (err) {
+                console.error("Lỗi tải dữ liệu:", err);
+            }
+        }
+
+        function exportCSV() {
+            alert("Tính năng xuất CSV đang được kích hoạt.");
+        }
+
+        async function resetDatabase() {
+            if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử dữ liệu không?")) {
+                try {
+                    const res = await fetch("https://smart4-backend.onrender.com/reset", { method: "POST" });
+                    const result = await res.json();
+                    if (result.success) {
+                        alert("Đã xóa thành công!");
+                        fetchData();
                     }
+                } catch (e) {
+                    alert("Lỗi khi xóa dữ liệu!");
                 }
             }
-        });
-    }
-
-    // ==================================================
-    // TRẠNG THÁI CẢNH BÁO
-    // ==================================================
-    function updateAlertStatus(temp, gas, tempAlertFlag, gasAlertFlag) {
-        const tempCard = document.getElementById("temp-card");
-        const badgeTemp = document.getElementById("badge-temp");
-        const gasCard = document.getElementById("gas-card");
-        const badgeGas = document.getElementById("badge-gas");
-
-        // ==============================================
-        // NHIỆT ĐỘ
-        // ==============================================
-        const isTempCritical = tempAlertFlag !== undefined ? tempAlertFlag : temp >= TEMP_LIMIT;
-
-        if (isTempCritical) {
-            tempCard.className = "bg-white p-5 rounded-xl shadow border-l-4 border-red-500 bg-red-50/30";
-            badgeTemp.className = "inline-block mt-2 text-xs px-2 py-1 rounded bg-red-100 text-red-700 font-semibold";
-            badgeTemp.innerText = "⚠️ Cảnh báo: Nhiệt độ cao!";
-        } else {
-            tempCard.className = "bg-white p-5 rounded-xl shadow border-l-4 border-blue-500";
-            badgeTemp.className = "inline-block mt-2 text-xs px-2 py-1 rounded bg-green-100 text-green-700";
-            badgeTemp.innerText = "Trạng thái: An toàn";
         }
 
-        // ==============================================
-        // GAS
-        // ==============================================
-        const isGasCritical = gasAlertFlag !== undefined ? gasAlertFlag : gas >= GAS_LIMIT;
-
-        if (isGasCritical) {
-            gasCard.className = "bg-white p-5 rounded-xl shadow border-l-4 border-red-500 bg-red-50/30";
-            badgeGas.className = "inline-block mt-2 text-xs px-2 py-1 rounded bg-red-100 text-red-700 font-semibold";
-            badgeGas.innerText = "⚠️ Cảnh báo: Khí gas vượt ngưỡng!";
-        } else {
-            gasCard.className = "bg-white p-5 rounded-xl shadow border-l-4 border-green-500";
-            badgeGas.className = "inline-block mt-2 text-xs px-2 py-1 rounded bg-green-100 text-green-700";
-            badgeGas.innerText = "Trạng thái: An toàn";
+        function openWifiConfig() {
+            alert("Chuyển hướng trang cấu hình WiFi ESP32.");
         }
-    }
 
-    // ==================================================
-    // KIỂM TRA ESP32 ONLINE
-    // ==================================================
-    function checkConnectionStatus(latestTimestamp) {
-        const statusEl = document.getElementById("connection-status");
-        const serverTime = new Date(latestTimestamp).getTime();
-        const now = Date.now();
-        const diff = now - serverTime;
-
-        if (isNaN(serverTime) || diff > OFFLINE_THRESHOLD_MS) {
-            statusEl.className = "px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800";
-            statusEl.innerText = "🔴 ESP32: Offline";
-        } else {
-            statusEl.className = "px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800";
-            statusEl.innerText = "🟢 ESP32: Online";
-        }
-    }
-
-    // ==================================================
-    // LẤY DỮ LIỆU TỪ RENDER
-    // ==================================================
-    async function loadBackendData() {
-        coldStartTimer = setTimeout(() => {
-            document.getElementById("loading-banner").classList.remove("hidden");
-        }, 3000);
-
-        try {
-            const response = await fetch(API_URL);
-
-            if (!response.ok) {
-                throw new Error("HTTP Error: " + response.status);
-            }
-
-            const result = await response.json();
-
-            clearTimeout(coldStartTimer);
-
-            document.getElementById("loading-banner").classList.add("hidden");
-
-            if (!Array.isArray(result) || result.length === 0) {
-                return;
-            }
-
-            // ==========================================
-            // DỮ LIỆU MỚI NHẤT
-            // ==========================================
-            const latest = result[result.length - 1];
-
-            document.getElementById("val-temp").innerText = latest.temp;
-            document.getElementById("val-gas").innerText = latest.gas;
-
-            // ==========================================
-            // CẢNH BÁO
-            // ==========================================
-            updateAlertStatus(latest.temp, latest.gas, latest.temp_alert, latest.gas_alert);
-
-            // ==========================================
-            // ONLINE / OFFLINE
-            // ==========================================
-            checkConnectionStatus(latest.timestamp);
-
-            // ==========================================
-            // BIỂU ĐỒ
-            // ==========================================
-            const data = result.slice(-20);
-
-            chart.data.labels = data.map(x => new Date(x.timestamp).toLocaleTimeString());
-            chart.data.datasets[0].data = data.map(x => x.temp);
-            chart.data.datasets[1].data = data.map(x => x.gas);
-
-            chart.update();
-
-        } catch (error) {
-            clearTimeout(coldStartTimer);
-
-            document.getElementById("loading-banner").classList.add("hidden");
-
-            const statusEl = document.getElementById("connection-status");
-
-            statusEl.className = "px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-800";
-            statusEl.innerText = "❌ Lỗi kết nối Server";
-
-            console.error("Lỗi lấy dữ liệu:", error);
-        }
-    }
-
-    // ==================================================
-    // KHỞI ĐỘNG
-    // ==================================================
-    window.onload = () => {
-        initChart();
-        loadBackendData();
-        setInterval(loadBackendData, 5000);
-    };
-</script>
-
+        window.onload = () => {
+            initCharts();
+            fetchData();
+            setInterval(fetchData, 5000);
+        };
+    </script>
 </body>
-
 </html>
