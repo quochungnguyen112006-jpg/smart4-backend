@@ -166,78 +166,65 @@ mqttClient.on(
 
 
             // =========================
-            // ONESIGNAL
-            // =========================
+// ONESIGNAL
+// =========================
 
-            if (
-                temp_alert ||
-                gas_alert
-            ) {
+if (
+    temp_alert ||
+    gas_alert
+) {
 
-                try {
+    try {
 
-                    await axios.post(
-                        "https://api.onesignal.com/notifications",
-                        {
-                            app_id:
-                                process.env.ONESIGNAL_APP_ID,
+        await axios.post(
+            "https://api.onesignal.com/api/v1/notifications", // <-- Đã thêm /api/v1/
+            {
+                app_id:
+                    process.env.ONESIGNAL_APP_ID,
 
-                            included_segments:
-                                ["All"],
+                included_segments:
+                    ["All"],
 
-                            headings: {
-                                en: "Smart4 Alert"
-                            },
+                headings: {
+                    en: "Smart4 Alert"
+                },
 
-                            contents: {
-                                en:
-                                    temp_alert &&
-                                    gas_alert
-                                        ? "Nhiệt độ và khí gas vượt ngưỡng!"
-                                        : temp_alert
-                                            ? "Nhiệt độ vượt ngưỡng!"
-                                            : "Khí gas vượt ngưỡng!"
-                            }
-                        },
-                        {
-                            headers: {
-                                Authorization:
-                                    `Key ${process.env.ONESIGNAL_API_KEY}`,
-
-                                "Content-Type":
-                                    "application/json"
-                            }
-                        }
-                    );
-
-                    console.log(
-                        "✅ OneSignal notification sent"
-                    );
-
-                } catch (notificationError) {
-
-                    console.error(
-                        "❌ OneSignal error:",
-                        notificationError.response?.data ||
-                        notificationError.message
-                    );
-
+                contents: {
+                    en:
+                        temp_alert &&
+                        gas_alert
+                            ? "Nhiệt độ và khí gas vượt ngưỡng!"
+                            : temp_alert
+                                ? "Nhiệt độ vượt ngưỡng!"
+                                : "Khí gas vượt ngưỡng!"
                 }
+            },
+            {
+                headers: {
+                    Authorization:
+                        `Key ${process.env.ONESIGNAL_API_KEY}`,
 
+                    "Content-Type":
+                        "application/json"
+                }
             }
+        );
 
-        } catch (error) {
+        console.log(
+            "✅ OneSignal notification sent"
+        );
 
-            console.error(
-                "❌ MQTT message error:",
-                error
-            );
+    } catch (notificationError) {
 
-        }
+        console.error(
+            "❌ OneSignal error:",
+            notificationError.response?.data ||
+            notificationError.message
+        );
 
     }
-);
 
+}
 
 // =========================
 // HTTP SERVER
