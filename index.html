@@ -634,7 +634,6 @@ function exportCSV() {
     link.click();
     URL.revokeObjectURL(url);
 }
-
 async function refreshAll() {
     await loadData();
     await loadStatus();
@@ -644,6 +643,5 @@ async function refreshAll() {
 refreshAll();
 setInterval(refreshAll, 5000);
 </script>
-
 </body>
 </html>
